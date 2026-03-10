@@ -23,18 +23,18 @@ export declare class DocumentsService {
         };
         booking: ({
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -50,8 +50,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -59,12 +59,12 @@ export declare class DocumentsService {
             bookingFeePaid: boolean;
         }) | null;
     } & {
+        type: import(".prisma/client").$Enums.DocumentType;
         id: string;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
         bookingId: string | null;
         fileUrl: string;
@@ -87,8 +87,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -96,12 +96,12 @@ export declare class DocumentsService {
             bookingFeePaid: boolean;
         } | null;
     } & {
+        type: import(".prisma/client").$Enums.DocumentType;
         id: string;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
         bookingId: string | null;
         fileUrl: string;
@@ -142,8 +142,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -151,12 +151,12 @@ export declare class DocumentsService {
             bookingFeePaid: boolean;
         } | null;
     } & {
+        type: import(".prisma/client").$Enums.DocumentType;
         id: string;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
         bookingId: string | null;
         fileUrl: string;
@@ -179,12 +179,12 @@ export declare class DocumentsService {
         bookingId?: string;
         status?: string;
     }): Promise<{
+        type: import(".prisma/client").$Enums.DocumentType;
         id: string;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
         bookingId: string | null;
         fileUrl: string;
@@ -198,12 +198,12 @@ export declare class DocumentsService {
         reviewedAt: Date | null;
     }>;
     updateStatus(id: string, status: string, rejectReason?: string): Promise<{
+        type: import(".prisma/client").$Enums.DocumentType;
         id: string;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
         bookingId: string | null;
         fileUrl: string;
@@ -244,8 +244,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -253,12 +253,12 @@ export declare class DocumentsService {
             bookingFeePaid: boolean;
         } | null;
     } & {
+        type: import(".prisma/client").$Enums.DocumentType;
         id: string;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
         bookingId: string | null;
         fileUrl: string;

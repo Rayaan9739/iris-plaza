@@ -1,11 +1,13 @@
 import { AdminService } from "./admin.service";
 import { RoomsService } from "@/modules/rooms/rooms.service";
 import { BookingsService } from "@/modules/bookings/bookings.service";
+import { CloudinaryService } from "@/common/services/cloudinary.service";
 export declare class AdminController {
     private readonly adminService;
     private readonly roomsService;
     private readonly bookingsService;
-    constructor(adminService: AdminService, roomsService: RoomsService, bookingsService: BookingsService);
+    private readonly cloudinaryService;
+    constructor(adminService: AdminService, roomsService: RoomsService, bookingsService: BookingsService, cloudinaryService: CloudinaryService);
     private executeAdminAction;
     getDashboard(): Promise<{
         totalRooms: number;
@@ -991,7 +993,7 @@ export declare class AdminController {
             videoUrl: string | null;
         };
     }>;
-    uploadRoomVideo(file: Express.Multer.File, req: any): Promise<{
+    uploadRoomVideo(file: Express.Multer.File): Promise<{
         message: string;
         videoUrl: string;
     }>;

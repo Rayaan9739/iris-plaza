@@ -38,18 +38,18 @@ export declare class CancellationRequestService {
                 deletedAt: Date | null;
             };
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -65,8 +65,8 @@ export declare class CancellationRequestService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -126,18 +126,18 @@ export declare class CancellationRequestService {
                 deletedAt: Date | null;
             };
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -153,8 +153,8 @@ export declare class CancellationRequestService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -196,18 +196,18 @@ export declare class CancellationRequestService {
                 deletedAt: Date | null;
             };
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -223,8 +223,8 @@ export declare class CancellationRequestService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -248,18 +248,18 @@ export declare class CancellationRequestService {
     processApprovedRequests(): Promise<({
         booking: {
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -275,8 +275,8 @@ export declare class CancellationRequestService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -301,18 +301,18 @@ export declare class CancellationRequestService {
     getMyRequest(userId: string): Promise<({
         booking: {
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -328,8 +328,8 @@ export declare class CancellationRequestService {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;

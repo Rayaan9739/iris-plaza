@@ -9,6 +9,7 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
@@ -18,11 +19,15 @@ import { OnlinePaymentDto, CashPaymentDto } from "./dto/pay-payment.dto";
 import { JwtAuthGuard } from "@/modules/auth/guards/jwt-auth.guard";
 import { RolesGuard } from "@/common/guards/roles.guard";
 import { Roles } from "@/common/decorators/roles.decorator";
+import { CloudinaryService } from "@/common/services/cloudinary.service";
 
 @ApiTags("Payments")
 @Controller("payments")
 export class PaymentsController {
-  constructor(private paymentsService: PaymentsService) {}
+  constructor(
+    private paymentsService: PaymentsService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
@@ -190,6 +195,13 @@ export class PaymentsController {
     @UploadedFile() file: Express.Multer.File,
     @Body("paymentId") paymentId: string,
   ) {
-    return this.paymentsService.uploadScreenshot(paymentId, file);
+    if (!file) {
+      throw new BadRequestException("Screenshot file is required");
+    }
+    
+    // Upload to Cloudinary
+    const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/payments");
+    
+    return this.paymentsService.uploadScreenshot(paymentId, result.secure_url, file);
   }
 }

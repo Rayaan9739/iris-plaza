@@ -17,28 +17,28 @@ export declare class RoomsService {
     triggerOccupancyRefresh(): Promise<void>;
     findAll(): Promise<{
         rules: string[];
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         videoUrl: string | null;
         amenities: ({
             amenity: {
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -52,41 +52,41 @@ export declare class RoomsService {
             roomId: string;
             url: string;
             caption: string | null;
-            isPrimary: boolean;
             order: number;
+            isPrimary: boolean;
         }[];
         media: {
+            type: string;
             id: string;
             createdAt: Date;
-            type: string;
             roomId: string;
             url: string;
         }[];
     }[]>;
     findOne(id: string): Promise<{
         rules: string[];
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         videoUrl: string | null;
         amenities: ({
             amenity: {
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -100,41 +100,41 @@ export declare class RoomsService {
             roomId: string;
             url: string;
             caption: string | null;
-            isPrimary: boolean;
             order: number;
+            isPrimary: boolean;
         }[];
         media: {
+            type: string;
             id: string;
             createdAt: Date;
-            type: string;
             roomId: string;
             url: string;
         }[];
     }>;
     create(createRoomDto: CreateRoomDto): Promise<{
         rules: string[];
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         videoUrl: string | null;
         amenities: ({
             amenity: {
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -148,41 +148,41 @@ export declare class RoomsService {
             roomId: string;
             url: string;
             caption: string | null;
-            isPrimary: boolean;
             order: number;
+            isPrimary: boolean;
         }[];
         media: {
+            type: string;
             id: string;
             createdAt: Date;
-            type: string;
             roomId: string;
             url: string;
         }[];
     }>;
     update(id: string, updateRoomDto: UpdateRoomDto): Promise<{
         rules: string[];
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         videoUrl: string | null;
         amenities: ({
             amenity: {
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -196,30 +196,30 @@ export declare class RoomsService {
             roomId: string;
             url: string;
             caption: string | null;
-            isPrimary: boolean;
             order: number;
+            isPrimary: boolean;
         }[];
         media: {
+            type: string;
             id: string;
             createdAt: Date;
-            type: string;
             roomId: string;
             url: string;
         }[];
     }>;
     remove(id: string): Promise<{
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
@@ -227,18 +227,18 @@ export declare class RoomsService {
         videoUrl: string | null;
     }>;
     delete(id: string): Promise<{
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
@@ -247,28 +247,28 @@ export declare class RoomsService {
     }>;
     getAvailableRooms(): Promise<{
         rules: string[];
+        type: import(".prisma/client").$Enums.RoomType;
+        description: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         name: string;
-        description: string | null;
-        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         floor: number;
         area: number;
         rent: Prisma.Decimal;
         deposit: Prisma.Decimal;
-        status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         videoUrl: string | null;
         amenities: ({
             amenity: {
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -282,13 +282,13 @@ export declare class RoomsService {
             roomId: string;
             url: string;
             caption: string | null;
-            isPrimary: boolean;
             order: number;
+            isPrimary: boolean;
         }[];
         media: {
+            type: string;
             id: string;
             createdAt: Date;
-            type: string;
             roomId: string;
             url: string;
         }[];

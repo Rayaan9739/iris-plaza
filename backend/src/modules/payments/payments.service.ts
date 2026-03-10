@@ -852,7 +852,7 @@ export class PaymentsService {
     });
   }
 
-  async uploadScreenshot(paymentId: string, file: Express.Multer.File) {
+  async uploadScreenshot(paymentId: string, screenshotUrl: string, file?: Express.Multer.File) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
     });
@@ -861,29 +861,40 @@ export class PaymentsService {
       throw new BadRequestException("Payment not found");
     }
 
-    // Validate file type and size
-    const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException("Invalid file type. Only jpg, png, and pdf are allowed");
+    // If Cloudinary URL is provided, use it directly
+    // Otherwise, fall back to local file handling (for backward compatibility)
+    let finalScreenshotUrl = screenshotUrl;
+    
+    if (!screenshotUrl.startsWith('http')) {
+      // Legacy local file handling
+      if (!file) {
+        throw new BadRequestException("File is required");
+      }
+
+      // Validate file type and size
+      const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException("Invalid file type. Only jpg, png, and pdf are allowed");
+      }
+
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new BadRequestException("File too large. Maximum size is 10MB");
+      }
+
+      const fs = require("fs");
+      const path = require("path");
+      const fileName = `${paymentId}-${Date.now()}${path.extname(file.originalname)}`;
+      const uploadDir = path.join(process.cwd(), "uploads", "payments");
+      const uploadPath = path.join(uploadDir, fileName);
+
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      fs.writeFileSync(uploadPath, file.buffer);
+      finalScreenshotUrl = `/uploads/payments/${fileName}`;
     }
-
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      throw new BadRequestException("File too large. Maximum size is 10MB");
-    }
-
-    const fs = require("fs");
-    const path = require("path");
-    const fileName = `${paymentId}-${Date.now()}${path.extname(file.originalname)}`;
-    const uploadDir = path.join(process.cwd(), "uploads", "payments");
-    const uploadPath = path.join(uploadDir, fileName);
-
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    fs.writeFileSync(uploadPath, file.buffer);
-    const screenshotUrl = `/uploads/payments/${fileName}`;
 
     // Use OCR to extract payment details from screenshot
     let extractedData: any = null;
@@ -891,12 +902,13 @@ export class PaymentsService {
     let amountPaid = 0;
     let transactionId: string | null = null;
 
+    // Try OCR extraction only if we have the file buffer (not for Cloudinary uploads)
     try {
       const ocrService = new (require("../../common/services/ocr.service").OcrService)();
       
-      if (file.mimetype === "application/pdf") {
+      if (file && file.mimetype === "application/pdf") {
         extractedData = await ocrService.extractFromPdf(file.buffer);
-      } else {
+      } else if (file) {
         extractedData = await ocrService.extractFromImage(file.buffer);
       }
 
@@ -950,7 +962,7 @@ export class PaymentsService {
     const updatedPayment = await this.prisma.payment.update({
       where: { id: paymentId },
       data: {
-        screenshotUrl,
+        screenshotUrl: finalScreenshotUrl,
         transactionId,
         transactionDate: paymentDate,
         amountPaid: amountPaid > 0 ? amountPaid : undefined,

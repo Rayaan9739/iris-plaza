@@ -2,14 +2,16 @@ import { Injectable, NotFoundException, Logger } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import * as fs from "fs";
-import * as path from "path";
+import { CloudinaryService } from "@/common/services/cloudinary.service";
 
 @Injectable()
 export class AgreementsService {
   private readonly logger = new Logger(AgreementsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   async generateRentalAgreement(bookingId: string): Promise<string> {
     // Get booking with all required data
@@ -37,18 +39,17 @@ export class AgreementsService {
     // Create PDF
     const pdfBytes = await this.createAgreementPdf(booking);
     
-    // Save to file
-    const uploadsDir = path.join(process.cwd(), "uploads", "agreements");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
+    // Upload PDF to Cloudinary as raw file
     const fileName = `agreement_${bookingId}.pdf`;
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, pdfBytes);
-
-    // Save or update agreement in database
-    const agreementUrl = `/uploads/agreements/${fileName}`;
+    let agreementUrl: string;
+    
+    try {
+      const result = await this.cloudinaryService.uploadBuffer(pdfBytes, fileName, "iris-plaza/agreement");
+      agreementUrl = result.secure_url;
+    } catch (error) {
+      console.error("Failed to upload agreement to Cloudinary:", error);
+      throw new Error("Failed to generate rental agreement");
+    }
     
     const agreementData = {
       bookingId,

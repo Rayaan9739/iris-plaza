@@ -1,8 +1,10 @@
 import { PrismaService } from "@/prisma/prisma.service";
+import { CloudinaryService } from "@/common/services/cloudinary.service";
 export declare class AgreementsService {
     private prisma;
+    private cloudinaryService;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, cloudinaryService: CloudinaryService);
     generateRentalAgreement(bookingId: string): Promise<string>;
     private createAgreementPdf;
     findByBooking(bookingId: string): Promise<({

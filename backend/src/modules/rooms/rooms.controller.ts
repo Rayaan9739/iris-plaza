@@ -7,16 +7,8 @@ import {
   Body,
   Param,
   UseGuards,
-  UploadedFile,
-  UseInterceptors,
-  BadRequestException,
-  Request,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname, join } from "node:path";
-import { existsSync, mkdirSync } from "node:fs";
 import { RoomsService } from "./rooms.service";
 import { CreateRoomDto, UpdateRoomDto } from "./dto/room.dto";
 import { JwtAuthGuard } from "@/modules/auth/guards/jwt-auth.guard";
@@ -51,46 +43,7 @@ export class RoomsController {
   @Roles("ADMIN")
   @ApiBearerAuth()
   @ApiOperation({ summary: "Create a new room (Admin only)" })
-  @UseInterceptors(
-    FileInterceptor("video", {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadDir = join(process.cwd(), "uploads", "videos");
-          if (!existsSync(uploadDir)) {
-            mkdirSync(uploadDir, { recursive: true });
-          }
-          cb(null, uploadDir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `${safe}${ext}`);
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        const allowed = new Set([".mp4", ".mov", ".webm"]);
-        const ext = extname(file.originalname).toLowerCase();
-        cb(
-          allowed.has(ext)
-            ? null
-            : new BadRequestException("Only mp4, mov, webm videos are allowed"),
-          allowed.has(ext),
-        );
-      },
-      limits: { fileSize: 100 * 1024 * 1024 },
-    }),
-  )
-  async create(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-    @Request() req: any,
-  ) {
-    if (file) {
-      const host = req.get("host");
-      const protocol = req.protocol;
-      body.videoUrl = `${protocol}://${host}/uploads/videos/${file.filename}`;
-    }
-
+  async create(@Body() body: any) {
     // coerce numbers
     body.floor = Number(body.floor);
     body.area = Number(body.area);

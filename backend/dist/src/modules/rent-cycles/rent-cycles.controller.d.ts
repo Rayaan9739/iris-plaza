@@ -5,18 +5,18 @@ export declare class RentCyclesController {
     getMyRentCycles(req: any): Promise<({
         booking: {
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -32,8 +32,8 @@ export declare class RentCyclesController {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -41,14 +41,14 @@ export declare class RentCyclesController {
             bookingFeePaid: boolean;
         };
         payments: {
+            type: import(".prisma/client").$Enums.PaymentType;
+            description: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            description: string | null;
-            type: import(".prisma/client").$Enums.PaymentType;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             roomId: string | null;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             bookingId: string | null;
             tenantId: string | null;
             rentCycleId: string | null;
@@ -90,18 +90,18 @@ export declare class RentCyclesController {
     getCurrentCycle(req: any): Promise<({
         booking: {
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -117,8 +117,8 @@ export declare class RentCyclesController {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -126,14 +126,14 @@ export declare class RentCyclesController {
             bookingFeePaid: boolean;
         };
         payments: {
+            type: import(".prisma/client").$Enums.PaymentType;
+            description: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            description: string | null;
-            type: import(".prisma/client").$Enums.PaymentType;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             roomId: string | null;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             bookingId: string | null;
             tenantId: string | null;
             rentCycleId: string | null;
@@ -208,18 +208,18 @@ export declare class RentCyclesController {
         };
         booking: {
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                description: string | null;
-                type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -235,8 +235,8 @@ export declare class RentCyclesController {
             moveOutDate: Date | null;
             expiresAt: Date | null;
             userId: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -244,14 +244,14 @@ export declare class RentCyclesController {
             bookingFeePaid: boolean;
         };
         payments: {
+            type: import(".prisma/client").$Enums.PaymentType;
+            description: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            description: string | null;
-            type: import(".prisma/client").$Enums.PaymentType;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             roomId: string | null;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             bookingId: string | null;
             tenantId: string | null;
             rentCycleId: string | null;

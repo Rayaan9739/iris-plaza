@@ -698,41 +698,47 @@ let PaymentsService = class PaymentsService {
             description: `Auto-verified via screenshot. Extracted UPI: ${upiId || "N/A"}`,
         });
     }
-    async uploadScreenshot(paymentId, file) {
+    async uploadScreenshot(paymentId, screenshotUrl, file) {
         const payment = await this.prisma.payment.findUnique({
             where: { id: paymentId },
         });
         if (!payment) {
             throw new common_1.BadRequestException("Payment not found");
         }
-        const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
-        if (!allowedMimeTypes.includes(file.mimetype)) {
-            throw new common_1.BadRequestException("Invalid file type. Only jpg, png, and pdf are allowed");
+        let finalScreenshotUrl = screenshotUrl;
+        if (!screenshotUrl.startsWith('http')) {
+            if (!file) {
+                throw new common_1.BadRequestException("File is required");
+            }
+            const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
+            if (!allowedMimeTypes.includes(file.mimetype)) {
+                throw new common_1.BadRequestException("Invalid file type. Only jpg, png, and pdf are allowed");
+            }
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                throw new common_1.BadRequestException("File too large. Maximum size is 10MB");
+            }
+            const fs = require("fs");
+            const path = require("path");
+            const fileName = `${paymentId}-${Date.now()}${path.extname(file.originalname)}`;
+            const uploadDir = path.join(process.cwd(), "uploads", "payments");
+            const uploadPath = path.join(uploadDir, fileName);
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+            fs.writeFileSync(uploadPath, file.buffer);
+            finalScreenshotUrl = `/uploads/payments/${fileName}`;
         }
-        const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
-            throw new common_1.BadRequestException("File too large. Maximum size is 10MB");
-        }
-        const fs = require("fs");
-        const path = require("path");
-        const fileName = `${paymentId}-${Date.now()}${path.extname(file.originalname)}`;
-        const uploadDir = path.join(process.cwd(), "uploads", "payments");
-        const uploadPath = path.join(uploadDir, fileName);
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        fs.writeFileSync(uploadPath, file.buffer);
-        const screenshotUrl = `/uploads/payments/${fileName}`;
         let extractedData = null;
         let paymentDate = null;
         let amountPaid = 0;
         let transactionId = null;
         try {
             const ocrService = new (require("../../common/services/ocr.service").OcrService)();
-            if (file.mimetype === "application/pdf") {
+            if (file && file.mimetype === "application/pdf") {
                 extractedData = await ocrService.extractFromPdf(file.buffer);
             }
-            else {
+            else if (file) {
                 extractedData = await ocrService.extractFromImage(file.buffer);
             }
             if (extractedData) {
@@ -774,7 +780,7 @@ let PaymentsService = class PaymentsService {
         const updatedPayment = await this.prisma.payment.update({
             where: { id: paymentId },
             data: {
-                screenshotUrl,
+                screenshotUrl: finalScreenshotUrl,
                 transactionId,
                 transactionDate: paymentDate,
                 amountPaid: amountPaid > 0 ? amountPaid : undefined,

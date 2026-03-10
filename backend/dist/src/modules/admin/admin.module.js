@@ -15,6 +15,7 @@ const bookings_module_1 = require("../bookings/bookings.module");
 const notifications_module_1 = require("../notifications/notifications.module");
 const payments_module_1 = require("../payments/payments.module");
 const event_emitter_service_1 = require("../../common/services/event-emitter.service");
+const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
@@ -22,7 +23,7 @@ exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
         imports: [rooms_module_1.RoomsModule, bookings_module_1.BookingsModule, notifications_module_1.NotificationsModule, payments_module_1.PaymentsModule],
         controllers: [admin_controller_1.AdminController],
-        providers: [admin_service_1.AdminService, event_emitter_service_1.EventEmitterService],
+        providers: [admin_service_1.AdminService, event_emitter_service_1.EventEmitterService, cloudinary_service_1.CloudinaryService],
         exports: [admin_service_1.AdminService],
     })
 ], AdminModule);

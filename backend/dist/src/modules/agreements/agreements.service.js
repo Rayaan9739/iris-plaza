@@ -15,11 +15,11 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const pdf_lib_1 = require("pdf-lib");
 const schedule_1 = require("@nestjs/schedule");
-const fs = require("fs");
-const path = require("path");
+const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 let AgreementsService = AgreementsService_1 = class AgreementsService {
-    constructor(prisma) {
+    constructor(prisma, cloudinaryService) {
         this.prisma = prisma;
+        this.cloudinaryService = cloudinaryService;
         this.logger = new common_1.Logger(AgreementsService_1.name);
     }
     async generateRentalAgreement(bookingId) {
@@ -40,14 +40,16 @@ let AgreementsService = AgreementsService_1 = class AgreementsService {
             return existingAgreement.agreementUrl;
         }
         const pdfBytes = await this.createAgreementPdf(booking);
-        const uploadsDir = path.join(process.cwd(), "uploads", "agreements");
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-        }
         const fileName = `agreement_${bookingId}.pdf`;
-        const filePath = path.join(uploadsDir, fileName);
-        fs.writeFileSync(filePath, pdfBytes);
-        const agreementUrl = `/uploads/agreements/${fileName}`;
+        let agreementUrl;
+        try {
+            const result = await this.cloudinaryService.uploadBuffer(pdfBytes, fileName, "iris-plaza/agreement");
+            agreementUrl = result.secure_url;
+        }
+        catch (error) {
+            console.error("Failed to upload agreement to Cloudinary:", error);
+            throw new Error("Failed to generate rental agreement");
+        }
         const agreementData = {
             bookingId,
             agreementUrl,
@@ -422,6 +424,7 @@ __decorate([
 ], AgreementsService.prototype, "expireAgreements", null);
 exports.AgreementsService = AgreementsService = AgreementsService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        cloudinary_service_1.CloudinaryService])
 ], AgreementsService);
 //# sourceMappingURL=agreements.service.js.map

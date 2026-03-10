@@ -22,9 +22,11 @@ const pay_payment_dto_1 = require("./dto/pay-payment.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 let PaymentsController = class PaymentsController {
-    constructor(paymentsService) {
+    constructor(paymentsService, cloudinaryService) {
         this.paymentsService = paymentsService;
+        this.cloudinaryService = cloudinaryService;
     }
     async getMyPayments(req) {
         return this.paymentsService.findMyPayments(req.user.userId);
@@ -77,7 +79,11 @@ let PaymentsController = class PaymentsController {
         return this.paymentsService.getPaymentSummary(req.user.userId);
     }
     async uploadScreenshot(file, paymentId) {
-        return this.paymentsService.uploadScreenshot(paymentId, file);
+        if (!file) {
+            throw new common_1.BadRequestException("Screenshot file is required");
+        }
+        const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/payments");
+        return this.paymentsService.uploadScreenshot(paymentId, result.secure_url, file);
     }
 };
 exports.PaymentsController = PaymentsController;
@@ -249,6 +255,7 @@ __decorate([
 exports.PaymentsController = PaymentsController = __decorate([
     (0, swagger_1.ApiTags)("Payments"),
     (0, common_1.Controller)("payments"),
-    __metadata("design:paramtypes", [payments_service_1.PaymentsService])
+    __metadata("design:paramtypes", [payments_service_1.PaymentsService,
+        cloudinary_service_1.CloudinaryService])
 ], PaymentsController);
 //# sourceMappingURL=payments.controller.js.map

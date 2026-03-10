@@ -10,13 +10,14 @@ exports.AgreementsModule = void 0;
 const common_1 = require("@nestjs/common");
 const agreements_service_1 = require("./agreements.service");
 const agreements_controller_1 = require("./agreements.controller");
+const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 let AgreementsModule = class AgreementsModule {
 };
 exports.AgreementsModule = AgreementsModule;
 exports.AgreementsModule = AgreementsModule = __decorate([
     (0, common_1.Module)({
         controllers: [agreements_controller_1.AgreementsController],
-        providers: [agreements_service_1.AgreementsService],
+        providers: [agreements_service_1.AgreementsService, cloudinary_service_1.CloudinaryService],
         exports: [agreements_service_1.AgreementsService],
     })
 ], AgreementsModule);

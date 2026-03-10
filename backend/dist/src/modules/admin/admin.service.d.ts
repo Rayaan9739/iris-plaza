@@ -37,19 +37,19 @@ export declare class AdminService {
         };
     }>;
     getAdminRooms(): Promise<{
-        deletedAt: Date | null;
-        status: import(".prisma/client").$Enums.RoomStatus;
-        isAvailable: boolean;
         id: string;
         type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
         description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
         name: string;
         floor: number;
         area: number;
         rent: import("@prisma/client/runtime/library").Decimal;
         deposit: import("@prisma/client/runtime/library").Decimal;
+        isAvailable: boolean;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         videoUrl: string | null;
@@ -85,10 +85,10 @@ export declare class AdminService {
     }[]>;
     getAdminBookings(): Promise<({
         user: {
-            deletedAt: Date | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             email: string | null;
             phone: string;
             password: string;
@@ -102,20 +102,28 @@ export declare class AdminService {
             isPhoneVerified: boolean;
             emailVerifyToken: string | null;
         };
+        statusHistory: {
+            id: string;
+            bookingId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            createdAt: Date;
+            comment: string | null;
+            changedBy: string | null;
+        }[];
         room: {
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.RoomStatus;
-            isAvailable: boolean;
             id: string;
             type: import(".prisma/client").$Enums.RoomType;
+            status: import(".prisma/client").$Enums.RoomStatus;
             description: string | null;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             name: string;
             floor: number;
             area: number;
             rent: import("@prisma/client/runtime/library").Decimal;
             deposit: import("@prisma/client/runtime/library").Decimal;
+            isAvailable: boolean;
             occupiedFrom: Date | null;
             occupiedUntil: Date | null;
             videoUrl: string | null;
@@ -149,22 +157,14 @@ export declare class AdminService {
                 url: string;
             }[];
         };
-        statusHistory: {
-            status: import(".prisma/client").$Enums.BookingStatus;
-            id: string;
-            bookingId: string;
-            createdAt: Date;
-            comment: string | null;
-            changedBy: string | null;
-        }[];
         documents: {
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.DocumentStatus;
             id: string;
             userId: string;
             bookingId: string | null;
             type: import(".prisma/client").$Enums.DocumentType;
+            status: import(".prisma/client").$Enums.DocumentStatus;
             updatedAt: Date;
+            deletedAt: Date | null;
             name: string;
             fileUrl: string;
             fileName: string | null;
@@ -177,11 +177,10 @@ export declare class AdminService {
             reviewedAt: Date | null;
         }[];
     } & {
-        deletedAt: Date | null;
-        status: import(".prisma/client").$Enums.BookingStatus;
         id: string;
         userId: string;
         roomId: string;
+        status: import(".prisma/client").$Enums.BookingStatus;
         createdAt: Date;
         updatedAt: Date;
         startDate: Date;
@@ -192,6 +191,7 @@ export declare class AdminService {
         bookingFee: import("@prisma/client/runtime/library").Decimal | null;
         bookingFeePaid: boolean;
         expiresAt: Date | null;
+        deletedAt: Date | null;
     })[]>;
     getAllTenants(): Promise<{
         id: string;
@@ -201,19 +201,19 @@ export declare class AdminService {
         phone: string;
         email: string | null;
         room: {
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.RoomStatus;
-            isAvailable: boolean;
             id: string;
             type: import(".prisma/client").$Enums.RoomType;
+            status: import(".prisma/client").$Enums.RoomStatus;
             description: string | null;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             name: string;
             floor: number;
             area: number;
             rent: import("@prisma/client/runtime/library").Decimal;
             deposit: import("@prisma/client/runtime/library").Decimal;
+            isAvailable: boolean;
             occupiedFrom: Date | null;
             occupiedUntil: Date | null;
             videoUrl: string | null;
@@ -251,10 +251,10 @@ export declare class AdminService {
         rent: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.BookingStatus;
         user: {
-            deletedAt: Date | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             email: string | null;
             phone: string;
             password: string;
@@ -313,19 +313,19 @@ export declare class AdminService {
     getAdminDocuments(): Promise<({
         booking: ({
             room: {
-                deletedAt: Date | null;
-                status: import(".prisma/client").$Enums.RoomStatus;
-                isAvailable: boolean;
                 id: string;
                 type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                deletedAt: Date | null;
                 name: string;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
+                isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
                 videoUrl: string | null;
@@ -360,11 +360,10 @@ export declare class AdminService {
                 }[];
             };
         } & {
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             id: string;
             userId: string;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             createdAt: Date;
             updatedAt: Date;
             startDate: Date;
@@ -375,12 +374,13 @@ export declare class AdminService {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
+            deletedAt: Date | null;
         }) | null;
         user: {
-            deletedAt: Date | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             email: string | null;
             phone: string;
             password: string;
@@ -395,13 +395,13 @@ export declare class AdminService {
             emailVerifyToken: string | null;
         };
     } & {
-        deletedAt: Date | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
         id: string;
         userId: string;
         bookingId: string | null;
         type: import(".prisma/client").$Enums.DocumentType;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         updatedAt: Date;
+        deletedAt: Date | null;
         name: string;
         fileUrl: string;
         fileName: string | null;
@@ -414,13 +414,13 @@ export declare class AdminService {
         reviewedAt: Date | null;
     })[]>;
     approveDocument(id: string): Promise<{
-        deletedAt: Date | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
         id: string;
         userId: string;
         bookingId: string | null;
         type: import(".prisma/client").$Enums.DocumentType;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         updatedAt: Date;
+        deletedAt: Date | null;
         name: string;
         fileUrl: string;
         fileName: string | null;
@@ -433,13 +433,13 @@ export declare class AdminService {
         reviewedAt: Date | null;
     }>;
     rejectDocument(id: string): Promise<{
-        deletedAt: Date | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
         id: string;
         userId: string;
         bookingId: string | null;
         type: import(".prisma/client").$Enums.DocumentType;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         updatedAt: Date;
+        deletedAt: Date | null;
         name: string;
         fileUrl: string;
         fileName: string | null;
@@ -485,11 +485,10 @@ export declare class AdminService {
     getPendingVerifications(): Promise<{
         documents: ({
             booking: {
-                deletedAt: Date | null;
-                status: import(".prisma/client").$Enums.BookingStatus;
                 id: string;
                 userId: string;
                 roomId: string;
+                status: import(".prisma/client").$Enums.BookingStatus;
                 createdAt: Date;
                 updatedAt: Date;
                 startDate: Date;
@@ -500,12 +499,13 @@ export declare class AdminService {
                 bookingFee: import("@prisma/client/runtime/library").Decimal | null;
                 bookingFeePaid: boolean;
                 expiresAt: Date | null;
+                deletedAt: Date | null;
             } | null;
             user: {
-                deletedAt: Date | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                deletedAt: Date | null;
                 email: string | null;
                 phone: string;
                 password: string;
@@ -520,13 +520,13 @@ export declare class AdminService {
                 emailVerifyToken: string | null;
             };
         } & {
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.DocumentStatus;
             id: string;
             userId: string;
             bookingId: string | null;
             type: import(".prisma/client").$Enums.DocumentType;
+            status: import(".prisma/client").$Enums.DocumentStatus;
             updatedAt: Date;
+            deletedAt: Date | null;
             name: string;
             fileUrl: string;
             fileName: string | null;
@@ -540,10 +540,10 @@ export declare class AdminService {
         })[];
         bookings: ({
             user: {
-                deletedAt: Date | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                deletedAt: Date | null;
                 email: string | null;
                 phone: string;
                 password: string;
@@ -558,19 +558,19 @@ export declare class AdminService {
                 emailVerifyToken: string | null;
             };
             room: {
-                deletedAt: Date | null;
-                status: import(".prisma/client").$Enums.RoomStatus;
-                isAvailable: boolean;
                 id: string;
                 type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                deletedAt: Date | null;
                 name: string;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
+                isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
                 videoUrl: string | null;
@@ -605,13 +605,13 @@ export declare class AdminService {
                 }[];
             };
             documents: {
-                deletedAt: Date | null;
-                status: import(".prisma/client").$Enums.DocumentStatus;
                 id: string;
                 userId: string;
                 bookingId: string | null;
                 type: import(".prisma/client").$Enums.DocumentType;
+                status: import(".prisma/client").$Enums.DocumentStatus;
                 updatedAt: Date;
+                deletedAt: Date | null;
                 name: string;
                 fileUrl: string;
                 fileName: string | null;
@@ -624,11 +624,10 @@ export declare class AdminService {
                 reviewedAt: Date | null;
             }[];
         } & {
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             id: string;
             userId: string;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             createdAt: Date;
             updatedAt: Date;
             startDate: Date;
@@ -639,6 +638,7 @@ export declare class AdminService {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
+            deletedAt: Date | null;
         })[];
         tenants: ({
             tenantProfile: {
@@ -660,10 +660,10 @@ export declare class AdminService {
                 kycVerifiedAt: Date | null;
             } | null;
         } & {
-            deletedAt: Date | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             email: string | null;
             phone: string;
             password: string;
@@ -679,10 +679,10 @@ export declare class AdminService {
         })[];
     }>;
     approveTenant(userId: string): Promise<{
-        deletedAt: Date | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
         email: string | null;
         phone: string;
         password: string;
@@ -697,10 +697,10 @@ export declare class AdminService {
         emailVerifyToken: string | null;
     }>;
     rejectTenant(userId: string): Promise<{
-        deletedAt: Date | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
         email: string | null;
         phone: string;
         password: string;
@@ -715,10 +715,10 @@ export declare class AdminService {
         emailVerifyToken: string | null;
     }>;
     suspendTenant(userId: string): Promise<{
-        deletedAt: Date | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
         email: string | null;
         phone: string;
         password: string;

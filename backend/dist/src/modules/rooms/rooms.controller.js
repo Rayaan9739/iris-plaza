@@ -15,10 +15,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RoomsController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
-const platform_express_1 = require("@nestjs/platform-express");
-const multer_1 = require("multer");
-const node_path_1 = require("node:path");
-const node_fs_1 = require("node:fs");
 const rooms_service_1 = require("./rooms.service");
 const room_dto_1 = require("./dto/room.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
@@ -37,12 +33,7 @@ let RoomsController = class RoomsController {
     async findOne(id) {
         return this.roomsService.findOne(id);
     }
-    async create(file, body, req) {
-        if (file) {
-            const host = req.get("host");
-            const protocol = req.protocol;
-            body.videoUrl = `${protocol}://${host}/uploads/videos/${file.filename}`;
-        }
+    async create(body) {
         body.floor = Number(body.floor);
         body.area = Number(body.area);
         body.rent = Number(body.rent);
@@ -95,35 +86,9 @@ __decorate([
     (0, roles_decorator_1.Roles)("ADMIN"),
     (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: "Create a new room (Admin only)" }),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("video", {
-        storage: (0, multer_1.diskStorage)({
-            destination: (_req, _file, cb) => {
-                const uploadDir = (0, node_path_1.join)(process.cwd(), "uploads", "videos");
-                if (!(0, node_fs_1.existsSync)(uploadDir)) {
-                    (0, node_fs_1.mkdirSync)(uploadDir, { recursive: true });
-                }
-                cb(null, uploadDir);
-            },
-            filename: (_req, file, cb) => {
-                const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-                const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-                cb(null, `${safe}${ext}`);
-            },
-        }),
-        fileFilter: (_req, file, cb) => {
-            const allowed = new Set([".mp4", ".mov", ".webm"]);
-            const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-            cb(allowed.has(ext)
-                ? null
-                : new common_1.BadRequestException("Only mp4, mov, webm videos are allowed"), allowed.has(ext));
-        },
-        limits: { fileSize: 100 * 1024 * 1024 },
-    })),
-    __param(0, (0, common_1.UploadedFile)()),
-    __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Request)()),
+    __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], RoomsController.prototype, "create", null);
 __decorate([

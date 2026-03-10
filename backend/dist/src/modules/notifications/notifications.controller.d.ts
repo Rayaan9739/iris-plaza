@@ -3,11 +3,11 @@ export declare class NotificationsController {
     private notificationsService;
     constructor(notificationsService: NotificationsService);
     getMyNotifications(req: any): Promise<{
+        type: import(".prisma/client").$Enums.NotificationType;
+        title: string;
         id: string;
         createdAt: Date;
         userId: string;
-        type: import(".prisma/client").$Enums.NotificationType;
-        title: string;
         message: string;
         isRead: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;

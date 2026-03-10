@@ -16,20 +16,19 @@ exports.AdminController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
-const multer_1 = require("multer");
-const node_path_1 = require("node:path");
-const node_fs_1 = require("node:fs");
 const admin_service_1 = require("./admin.service");
 const rooms_service_1 = require("../rooms/rooms.service");
 const bookings_service_1 = require("../bookings/bookings.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 let AdminController = class AdminController {
-    constructor(adminService, roomsService, bookingsService) {
+    constructor(adminService, roomsService, bookingsService, cloudinaryService) {
         this.adminService = adminService;
         this.roomsService = roomsService;
         this.bookingsService = bookingsService;
+        this.cloudinaryService = cloudinaryService;
     }
     async executeAdminAction(action, fallbackMessage) {
         try {
@@ -99,8 +98,6 @@ let AdminController = class AdminController {
     }
     async createRoom(files, body, req) {
         return this.executeAdminAction(async () => {
-            const host = req.get("host");
-            const protocol = req.protocol;
             const parseJsonField = (field, defaultValue = null) => {
                 if (field === undefined || field === null || field === "") {
                     return defaultValue;
@@ -121,15 +118,20 @@ let AdminController = class AdminController {
                 media.push(...existingMediaParsed);
             }
             if (files && files.length) {
-                files.forEach((file) => {
-                    const url = `${protocol}://${host}/uploads/rooms/${file.filename}`;
-                    const type = file.mimetype.startsWith("image/")
-                        ? "image"
-                        : file.mimetype.startsWith("video/")
-                            ? "video"
-                            : "unknown";
-                    media.push({ type, url });
-                });
+                for (const file of files) {
+                    try {
+                        const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
+                        const type = file.mimetype.startsWith("image/")
+                            ? "image"
+                            : file.mimetype.startsWith("video/")
+                                ? "video"
+                                : "unknown";
+                        media.push({ type, url: result.secure_url });
+                    }
+                    catch (uploadError) {
+                        console.error("Cloudinary upload error:", uploadError);
+                    }
+                }
             }
             const dto = {
                 ...body,
@@ -157,8 +159,6 @@ let AdminController = class AdminController {
     async updateRoom(id, files, body, req) {
         return this.executeAdminAction(async () => {
             const bodyData = body || {};
-            const host = req.get("host");
-            const protocol = req.protocol;
             const parseJsonField = (field, defaultValue = null) => {
                 if (field === undefined || field === null || field === "") {
                     return defaultValue;
@@ -179,15 +179,20 @@ let AdminController = class AdminController {
                 media.push(...existingMediaParsed);
             }
             if (files && files.length) {
-                files.forEach((file) => {
-                    const url = `${protocol}://${host}/uploads/rooms/${file.filename}`;
-                    const type = file.mimetype.startsWith("image/")
-                        ? "image"
-                        : file.mimetype.startsWith("video/")
-                            ? "video"
-                            : "unknown";
-                    media.push({ type, url });
-                });
+                for (const file of files) {
+                    try {
+                        const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
+                        const type = file.mimetype.startsWith("image/")
+                            ? "image"
+                            : file.mimetype.startsWith("video/")
+                                ? "video"
+                                : "unknown";
+                        media.push({ type, url: result.secure_url });
+                    }
+                    catch (uploadError) {
+                        console.error("Cloudinary upload error:", uploadError);
+                    }
+                }
             }
             const data = {};
             if (bodyData.name !== undefined)
@@ -233,17 +238,15 @@ let AdminController = class AdminController {
             throw new common_1.InternalServerErrorException("Failed to delete room");
         }
     }
-    async uploadRoomVideo(file, req) {
+    async uploadRoomVideo(file) {
         return this.executeAdminAction(async () => {
             if (!file) {
                 throw new common_1.BadRequestException("Video file is required");
             }
-            const host = req.get("host");
-            const protocol = req.protocol;
-            const videoUrl = `${protocol}://${host}/uploads/rooms/${file.filename}`;
+            const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
             return {
                 message: "Video uploaded successfully",
-                videoUrl,
+                videoUrl: result.secure_url,
             };
         }, "Room operation failed");
     }
@@ -407,38 +410,7 @@ __decorate([
     (0, common_1.Post)("rooms"),
     (0, swagger_1.ApiOperation)({ summary: "Create a room listing (Admin only)" }),
     (0, common_1.UsePipes)(new common_1.ValidationPipe({ transform: true, whitelist: false })),
-    (0, common_1.UseInterceptors)((0, platform_express_1.AnyFilesInterceptor)({
-        storage: (0, multer_1.diskStorage)({
-            destination: (_req, _file, cb) => {
-                const uploadDir = (0, node_path_1.join)(process.cwd(), "uploads", "rooms");
-                if (!(0, node_fs_1.existsSync)(uploadDir)) {
-                    (0, node_fs_1.mkdirSync)(uploadDir, { recursive: true });
-                }
-                cb(null, uploadDir);
-            },
-            filename: (_req, file, cb) => {
-                const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-                const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-                cb(null, `${safe}${ext}`);
-            },
-        }),
-        fileFilter: (_req, file, cb) => {
-            const allowed = new Set([
-                ".mp4",
-                ".mov",
-                ".webm",
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".webp",
-            ]);
-            const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-            cb(allowed.has(ext)
-                ? null
-                : new common_1.BadRequestException("Only images (jpg/png/webp) and videos (mp4/mov/webm) are allowed"), allowed.has(ext));
-        },
-        limits: { fileSize: 200 * 1024 * 1024 },
-    })),
+    (0, common_1.UseInterceptors)((0, platform_express_1.AnyFilesInterceptor)()),
     __param(0, (0, common_1.UploadedFiles)()),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
@@ -450,38 +422,7 @@ __decorate([
     (0, common_1.Put)("rooms/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Update a room listing (Admin only)" }),
     (0, common_1.UsePipes)(new common_1.ValidationPipe({ transform: true, whitelist: false })),
-    (0, common_1.UseInterceptors)((0, platform_express_1.AnyFilesInterceptor)({
-        storage: (0, multer_1.diskStorage)({
-            destination: (_req, _file, cb) => {
-                const uploadDir = (0, node_path_1.join)(process.cwd(), "uploads", "rooms");
-                if (!(0, node_fs_1.existsSync)(uploadDir)) {
-                    (0, node_fs_1.mkdirSync)(uploadDir, { recursive: true });
-                }
-                cb(null, uploadDir);
-            },
-            filename: (_req, file, cb) => {
-                const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-                const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-                cb(null, `${safe}${ext}`);
-            },
-        }),
-        fileFilter: (_req, file, cb) => {
-            const allowed = new Set([
-                ".mp4",
-                ".mov",
-                ".webm",
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".webp",
-            ]);
-            const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-            cb(allowed.has(ext)
-                ? null
-                : new common_1.BadRequestException("Only images (jpg/png/webp) and videos (mp4/mov/webm) are allowed"), allowed.has(ext));
-        },
-        limits: { fileSize: 200 * 1024 * 1024 },
-    })),
+    (0, common_1.UseInterceptors)((0, platform_express_1.AnyFilesInterceptor)()),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.UploadedFiles)()),
     __param(2, (0, common_1.Body)()),
@@ -502,23 +443,9 @@ __decorate([
     (0, common_1.Post)("upload/video"),
     (0, swagger_1.ApiOperation)({ summary: "Upload room tour video (Admin only)" }),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("video", {
-        storage: (0, multer_1.diskStorage)({
-            destination: (_req, _file, cb) => {
-                const uploadDir = (0, node_path_1.join)(process.cwd(), "uploads", "rooms");
-                if (!(0, node_fs_1.existsSync)(uploadDir)) {
-                    (0, node_fs_1.mkdirSync)(uploadDir, { recursive: true });
-                }
-                cb(null, uploadDir);
-            },
-            filename: (_req, file, cb) => {
-                const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
-                const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-                cb(null, `${safe}${ext}`);
-            },
-        }),
         fileFilter: (_req, file, cb) => {
             const allowed = new Set([".mp4", ".mov", ".webm"]);
-            const ext = (0, node_path_1.extname)(file.originalname).toLowerCase();
+            const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
             cb(allowed.has(ext)
                 ? null
                 : new common_1.BadRequestException("Only mp4, mov, webm videos are allowed"), allowed.has(ext));
@@ -526,9 +453,8 @@ __decorate([
         limits: { fileSize: 100 * 1024 * 1024 },
     })),
     __param(0, (0, common_1.UploadedFile)()),
-    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "uploadRoomVideo", null);
 __decorate([
@@ -588,6 +514,7 @@ exports.AdminController = AdminController = __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     __metadata("design:paramtypes", [admin_service_1.AdminService,
         rooms_service_1.RoomsService,
-        bookings_service_1.BookingsService])
+        bookings_service_1.BookingsService,
+        cloudinary_service_1.CloudinaryService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

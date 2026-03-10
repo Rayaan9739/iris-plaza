@@ -27,9 +27,6 @@ import {
   ApiResponse,
 } from "@nestjs/swagger";
 import { FileInterceptor, AnyFilesInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname, join } from "node:path";
-import { existsSync, mkdirSync } from "node:fs";
 import { AdminService } from "./admin.service";
 import { RoomsService } from "@/modules/rooms/rooms.service";
 import { BookingsService } from "@/modules/bookings/bookings.service";
@@ -37,6 +34,7 @@ import { CreateRoomDto } from "@/modules/rooms/dto/room.dto";
 import { JwtAuthGuard } from "@/modules/auth/guards/jwt-auth.guard";
 import { RolesGuard } from "@/common/guards/roles.guard";
 import { Roles } from "@/common/decorators/roles.decorator";
+import { CloudinaryService } from "@/common/services/cloudinary.service";
 
 @ApiTags("Admin")
 @Controller("admin")
@@ -48,6 +46,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly roomsService: RoomsService,
     private readonly bookingsService: BookingsService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   private async executeAdminAction<T>(
@@ -249,54 +248,13 @@ export class AdminController {
   @Post("rooms")
   @ApiOperation({ summary: "Create a room listing (Admin only)" })
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
-  @UseInterceptors(
-    AnyFilesInterceptor({
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadDir = join(process.cwd(), "uploads", "rooms");
-          if (!existsSync(uploadDir)) {
-            mkdirSync(uploadDir, { recursive: true });
-          }
-          cb(null, uploadDir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `${safe}${ext}`);
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        const allowed = new Set([
-          ".mp4",
-          ".mov",
-          ".webm",
-          ".jpg",
-          ".jpeg",
-          ".png",
-          ".webp",
-        ]);
-        const ext = extname(file.originalname).toLowerCase();
-        cb(
-          allowed.has(ext)
-            ? null
-            : new BadRequestException(
-                "Only images (jpg/png/webp) and videos (mp4/mov/webm) are allowed",
-              ),
-          allowed.has(ext),
-        );
-      },
-      limits: { fileSize: 200 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(AnyFilesInterceptor())
   async createRoom(
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: Record<string, any>,
     @Request() req: any,
   ) {
     return this.executeAdminAction(async () => {
-      const host = req.get("host");
-      const protocol = req.protocol;
-
       // Parse body fields that come as strings from FormData
       const parseJsonField = (field: any, defaultValue: any = null): any => {
         if (field === undefined || field === null || field === "") {
@@ -318,16 +276,22 @@ export class AdminController {
         media.push(...existingMediaParsed);
       }
 
+      // Upload files to Cloudinary
       if (files && files.length) {
-        files.forEach((file) => {
-          const url = `${protocol}://${host}/uploads/rooms/${file.filename}`;
-          const type = file.mimetype.startsWith("image/")
-            ? "image"
-            : file.mimetype.startsWith("video/")
-              ? "video"
-              : "unknown";
-          media.push({ type, url });
-        });
+        for (const file of files) {
+          try {
+            const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
+            const type = file.mimetype.startsWith("image/")
+              ? "image"
+              : file.mimetype.startsWith("video/")
+                ? "video"
+                : "unknown";
+            media.push({ type, url: result.secure_url });
+          } catch (uploadError) {
+            console.error("Cloudinary upload error:", uploadError);
+            // Continue with other files even if one fails
+          }
+        }
       }
 
       const dto: any = {
@@ -360,45 +324,7 @@ export class AdminController {
   @Put("rooms/:id")
   @ApiOperation({ summary: "Update a room listing (Admin only)" })
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
-  @UseInterceptors(
-    AnyFilesInterceptor({
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadDir = join(process.cwd(), "uploads", "rooms");
-          if (!existsSync(uploadDir)) {
-            mkdirSync(uploadDir, { recursive: true });
-          }
-          cb(null, uploadDir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `${safe}${ext}`);
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        const allowed = new Set([
-          ".mp4",
-          ".mov",
-          ".webm",
-          ".jpg",
-          ".jpeg",
-          ".png",
-          ".webp",
-        ]);
-        const ext = extname(file.originalname).toLowerCase();
-        cb(
-          allowed.has(ext)
-            ? null
-            : new BadRequestException(
-                "Only images (jpg/png/webp) and videos (mp4/mov/webm) are allowed",
-              ),
-          allowed.has(ext),
-        );
-      },
-      limits: { fileSize: 200 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(AnyFilesInterceptor())
   async updateRoom(
     @Param("id") id: string,
     @UploadedFiles() files: Express.Multer.File[],
@@ -407,8 +333,6 @@ export class AdminController {
   ) {
     return this.executeAdminAction(async () => {
       const bodyData = body || {};
-      const host = req.get("host");
-      const protocol = req.protocol;
 
       // Parse body fields that come as strings from FormData
       const parseJsonField = (field: any, defaultValue: any = null): any => {
@@ -431,16 +355,22 @@ export class AdminController {
         media.push(...existingMediaParsed);
       }
 
+      // Upload new files to Cloudinary
       if (files && files.length) {
-        files.forEach((file) => {
-          const url = `${protocol}://${host}/uploads/rooms/${file.filename}`;
-          const type = file.mimetype.startsWith("image/")
-            ? "image"
-            : file.mimetype.startsWith("video/")
-              ? "video"
-              : "unknown";
-          media.push({ type, url });
-        });
+        for (const file of files) {
+          try {
+            const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
+            const type = file.mimetype.startsWith("image/")
+              ? "image"
+              : file.mimetype.startsWith("video/")
+                ? "video"
+                : "unknown";
+            media.push({ type, url: result.secure_url });
+          } catch (uploadError) {
+            console.error("Cloudinary upload error:", uploadError);
+            // Continue with other files even if one fails
+          }
+        }
       }
 
       const data: any = {};
@@ -496,23 +426,9 @@ export class AdminController {
   @ApiOperation({ summary: "Upload room tour video (Admin only)" })
   @UseInterceptors(
     FileInterceptor("video", {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadDir = join(process.cwd(), "uploads", "rooms");
-          if (!existsSync(uploadDir)) {
-            mkdirSync(uploadDir, { recursive: true });
-          }
-          cb(null, uploadDir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `${safe}${ext}`);
-        },
-      }),
       fileFilter: (_req, file, cb) => {
         const allowed = new Set([".mp4", ".mov", ".webm"]);
-        const ext = extname(file.originalname).toLowerCase();
+        const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
         cb(
           allowed.has(ext)
             ? null
@@ -525,18 +441,17 @@ export class AdminController {
   )
   async uploadRoomVideo(
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
   ) {
     return this.executeAdminAction(async () => {
       if (!file) {
         throw new BadRequestException("Video file is required");
       }
-      const host = req.get("host");
-      const protocol = req.protocol;
-      const videoUrl = `${protocol}://${host}/uploads/rooms/${file.filename}`;
+      
+      // Upload to Cloudinary
+      const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
       return {
         message: "Video uploaded successfully",
-        videoUrl,
+        videoUrl: result.secure_url,
       };
     }, "Room operation failed");
   }

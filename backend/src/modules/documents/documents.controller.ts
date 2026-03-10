@@ -14,20 +14,21 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname, join } from "node:path";
-import { existsSync, mkdirSync } from "node:fs";
 import { DocumentsService } from "./documents.service";
 import { JwtAuthGuard } from "@/modules/auth/guards/jwt-auth.guard";
 import { RolesGuard } from "@/common/guards/roles.guard";
 import { Roles } from "@/common/decorators/roles.decorator";
+import { CloudinaryService } from "@/common/services/cloudinary.service";
 
 @ApiTags("Documents")
 @Controller("documents")
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class DocumentsController {
-  constructor(private documentsService: DocumentsService) {}
+  constructor(
+    private documentsService: DocumentsService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get("me")
   @ApiOperation({ summary: "Get my documents" })
@@ -51,34 +52,9 @@ export class DocumentsController {
   @ApiOperation({ summary: "Upload verification file" })
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadDir = join(process.cwd(), "uploads", "verification");
-          if (!existsSync(uploadDir)) {
-            mkdirSync(uploadDir, { recursive: true });
-          }
-          cb(null, uploadDir);
-        },
-        filename: (req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          const documentType = String(req.query.documentType || "")
-            .trim()
-            .toUpperCase();
-          const prefix =
-            documentType === "AADHAAR"
-              ? "aadhar"
-              : documentType === "COLLEGE_ID"
-                ? "id"
-                : documentType === "TENANT_PHOTO"
-                  ? "tenant"
-                  : "doc";
-          const safe = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          cb(null, `${prefix}_${safe}${ext}`);
-        },
-      }),
       fileFilter: (_req, file, cb) => {
         const allowed = new Set([".jpg", ".jpeg", ".png", ".pdf"]);
-        const ext = extname(file.originalname).toLowerCase();
+        const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
         cb(
           allowed.has(ext)
             ? null
@@ -91,20 +67,25 @@ export class DocumentsController {
   )
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
-    @Query("documentType") _documentType?: string,
+    @Query("documentType") documentType?: string,
   ) {
     if (!file) {
       throw new BadRequestException("File is required");
     }
-    const host = req.get("host");
-    const protocol = req.protocol;
-    return {
-      fileUrl: `${protocol}://${host}/uploads/verification/${file.filename}`,
-      fileName: file.originalname,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-    };
+
+    try {
+      // Upload to Cloudinary
+      const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/documents");
+      return {
+        fileUrl: result.secure_url,
+        fileName: file.originalname,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+      };
+    } catch (error) {
+      console.error("Cloudinary upload error:", error);
+      throw new BadRequestException("Failed to upload file to Cloudinary");
+    }
   }
 
   @Post("upload")
