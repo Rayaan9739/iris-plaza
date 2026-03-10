@@ -74,8 +74,11 @@ export class DocumentsController {
     }
 
     try {
-      // Upload to Cloudinary
-      const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/documents");
+      // Use uploadRaw for PDFs and other non-image files, uploadImage for images
+      const isImage = file.mimetype.startsWith("image/");
+      const result = isImage
+        ? await this.cloudinaryService.uploadImage(file, "iris-plaza/documents")
+        : await this.cloudinaryService.uploadRaw(file, "iris-plaza/documents");
       return {
         fileUrl: result.secure_url,
         fileName: file.originalname,

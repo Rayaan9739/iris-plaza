@@ -40,7 +40,10 @@ let DocumentsController = class DocumentsController {
             throw new common_1.BadRequestException("File is required");
         }
         try {
-            const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/documents");
+            const isImage = file.mimetype.startsWith("image/");
+            const result = isImage
+                ? await this.cloudinaryService.uploadImage(file, "iris-plaza/documents")
+                : await this.cloudinaryService.uploadRaw(file, "iris-plaza/documents");
             return {
                 fileUrl: result.secure_url,
                 fileName: file.originalname,
