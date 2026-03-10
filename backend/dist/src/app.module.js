@@ -25,6 +25,7 @@ const notifications_module_1 = require("./modules/notifications/notifications.mo
 const maintenance_module_1 = require("./modules/maintenance/maintenance.module");
 const admin_module_1 = require("./modules/admin/admin.module");
 const cancellation_request_module_1 = require("./modules/cancellation-requests/cancellation-request.module");
+const contact_module_1 = require("./modules/contact/contact.module");
 const prisma_module_1 = require("./prisma/prisma.module");
 let AppModule = class AppModule {
 };
@@ -57,6 +58,7 @@ exports.AppModule = AppModule = __decorate([
             maintenance_module_1.MaintenanceModule,
             admin_module_1.AdminModule,
             cancellation_request_module_1.CancellationRequestModule,
+            contact_module_1.ContactModule,
         ],
         providers: [
             {

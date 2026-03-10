@@ -17,6 +17,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { CancellationRequestModule } from "./modules/cancellation-requests/cancellation-request.module";
+import { ContactModule } from "./modules/contact/contact.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { HealthController } from "./health/health.controller";
 
@@ -58,6 +59,7 @@ import { HealthController } from "./health/health.controller";
     MaintenanceModule,
     AdminModule,
     CancellationRequestModule,
+    ContactModule,
   ],
   providers: [
     {
