@@ -6,35 +6,15 @@ const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction) {
-        app.enableCors({
-            origin: '*',
-            methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-            credentials: true,
-        });
-    }
-    else {
-        const frontendOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
-        const allowedOrigins = [
-            "http://localhost:5173",
-            "http://localhost:8080",
-            "http://localhost:8081",
-            frontendOrigin,
-        ];
-        app.enableCors({
-            origin: (origin, callback) => {
-                if (!origin || allowedOrigins.includes(origin)) {
-                    callback(null, true);
-                    return;
-                }
-                callback(new Error("Not allowed by CORS"), false);
-            },
-            credentials: true,
-            methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allowedHeaders: ["Content-Type", "Authorization"],
-        });
-    }
+    const allowedOrigins = [
+        "http://localhost:5173",
+        "https://cozy-home-ui.vercel.app",
+    ];
+    app.enableCors({
+        origin: allowedOrigins,
+        methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+        credentials: true,
+    });
     app.setGlobalPrefix("api");
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
@@ -64,7 +44,7 @@ async function bootstrap() {
             timestamp: new Date().toISOString()
         });
     });
-    const port = Number(process.env.PORT) || 5000;
+    const port = process.env.PORT || 5000;
     await app.listen(port);
     console.log(`Server running on port ${port}`);
     console.log(`Application running at: http://localhost:${port}`);
