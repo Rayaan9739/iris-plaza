@@ -1,0 +1,593 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Put,
+  Delete,
+  Param,
+  Body,
+  BadRequestException,
+  HttpException,
+  InternalServerErrorException,
+  UploadedFile,
+  UploadedFiles,
+  UseInterceptors,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  Request,
+  UsePipes,
+  ValidationPipe,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+} from "@nestjs/swagger";
+import { FileInterceptor, AnyFilesInterceptor } from "@nestjs/platform-express";
+import { diskStorage } from "multer";
+import { extname, join } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { AdminService } from "./admin.service";
+import { RoomsService } from "@/modules/rooms/rooms.service";
+import { BookingsService } from "@/modules/bookings/bookings.service";
+import { CreateRoomDto } from "@/modules/rooms/dto/room.dto";
+import { JwtAuthGuard } from "@/modules/auth/guards/jwt-auth.guard";
+import { RolesGuard } from "@/common/guards/roles.guard";
+import { Roles } from "@/common/decorators/roles.decorator";
+
+@ApiTags("Admin")
+@Controller("admin")
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("ADMIN")
+@ApiBearerAuth()
+export class AdminController {
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly roomsService: RoomsService,
+    private readonly bookingsService: BookingsService,
+  ) {}
+
+  private async executeAdminAction<T>(
+    action: () => Promise<T>,
+    fallbackMessage: string,
+  ): Promise<T> {
+    try {
+      return await action();
+    } catch (error) {
+      console.error(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(fallbackMessage);
+    }
+  }
+
+  @Get("dashboard")
+  @ApiOperation({ summary: "Get dashboard statistics" })
+  async getDashboard() {
+    return this.executeAdminAction(
+      () => this.adminService.getDashboardStats(),
+      "Failed to fetch dashboard statistics",
+    );
+  }
+
+  @Get("stats")
+  @ApiOperation({ summary: "Get dashboard statistics (legacy alias)" })
+  async getStats() {
+    return this.executeAdminAction(
+      () => this.adminService.getDashboardStats(),
+      "Failed to fetch dashboard statistics",
+    );
+  }
+
+  @Get("rooms")
+  @ApiOperation({ summary: "Get all rooms for admin" })
+  async getRooms() {
+    return this.executeAdminAction(
+      () => this.adminService.getAdminRooms(),
+      "Failed to fetch rooms",
+    );
+  }
+
+  @Get("bookings")
+  @ApiOperation({ summary: "Get all bookings for admin" })
+  async getBookings() {
+    return this.executeAdminAction(
+      () => this.adminService.getAdminBookings(),
+      "Failed to fetch bookings",
+    );
+  }
+
+  @Patch("bookings/:id/approve")
+  @ApiOperation({ summary: "Approve a booking (Admin)" })
+  async approveBooking(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.bookingsService.approve(id),
+      "Failed to approve booking",
+    );
+  }
+
+  @Patch("bookings/:id/reject")
+  @ApiOperation({ summary: "Reject a booking (Admin)" })
+  async rejectBooking(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.bookingsService.reject(id),
+      "Failed to reject booking",
+    );
+  }
+
+  @Get("tenants")
+  @ApiOperation({ summary: "Get all tenants with active bookings" })
+  async getTenants() {
+    return this.executeAdminAction(
+      () => this.adminService.getAllTenants(),
+      "Failed to fetch tenants",
+    );
+  }
+
+  @Get("tenants/:id")
+  @ApiOperation({ summary: "Get tenant details by ID" })
+  async getTenantById(@Param("id") tenantId: string) {
+    return this.executeAdminAction(
+      () => this.adminService.getTenantById(tenantId),
+      "Failed to fetch tenant details",
+    );
+  }
+
+  @Delete("tenants/:id")
+  @ApiOperation({ summary: "Remove tenant and free room" })
+  async removeTenant(@Param("id") userId: string) {
+    return this.executeAdminAction(
+      () => this.adminService.removeTenant(userId),
+      "Failed to remove tenant",
+    );
+  }
+
+  @Get("payments")
+  @ApiOperation({ summary: "Get all payments for admin" })
+  async getPayments() {
+    return this.executeAdminAction(
+      () => this.adminService.getAdminPayments(),
+      "Failed to fetch payments",
+    );
+  }
+
+  @Patch("payments/:id/mark-paid")
+  @ApiOperation({ summary: "Mark payment as received" })
+  async markPaymentAsReceived(
+    @Param("id") id: string,
+    @Body() body: { amountReceived?: number; note?: string; paymentMethod?: string },
+  ) {
+    return this.executeAdminAction(
+      () =>
+        this.adminService.markPaymentAsPaid(
+          id,
+          body?.amountReceived,
+          body?.note,
+          body?.paymentMethod,
+        ),
+      "Failed to mark payment as received",
+    );
+  }
+
+  @Get("documents")
+  @ApiOperation({ summary: "Get all uploaded tenant documents" })
+  async getDocuments() {
+    return this.executeAdminAction(
+      () => this.adminService.getAdminDocuments(),
+      "Failed to fetch documents",
+    );
+  }
+
+  @Patch("documents/:id/approve")
+  @ApiOperation({ summary: "Approve a document" })
+  async approveDocument(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.adminService.approveDocument(id),
+      "Failed to approve document",
+    );
+  }
+
+  @Patch("documents/:id/reject")
+  @ApiOperation({ summary: "Reject a document" })
+  async rejectDocument(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.adminService.rejectDocument(id),
+      "Failed to reject document",
+    );
+  }
+
+  @Get("maintenance")
+  @ApiOperation({ summary: "Get all maintenance requests" })
+  async getMaintenanceRequests() {
+    return this.executeAdminAction(
+      () => this.adminService.getMaintenanceRequests(),
+      "Failed to fetch maintenance requests",
+    );
+  }
+
+  @Patch("maintenance/:id/approve")
+  @ApiOperation({ summary: "Approve maintenance request" })
+  async approveMaintenanceRequest(
+    @Param("id") id: string,
+    @Body() body: { amountToPayNow: number },
+  ) {
+    return this.executeAdminAction(
+      () =>
+        this.adminService.approveMaintenanceRequest(
+          id,
+          Number(body.amountToPayNow),
+        ),
+      "Failed to approve maintenance request",
+    );
+  }
+
+  @Patch("maintenance/:id/reject")
+  @ApiOperation({ summary: "Reject maintenance request" })
+  async rejectMaintenanceRequest(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.adminService.rejectMaintenanceRequest(id),
+      "Failed to reject maintenance request",
+    );
+  }
+
+  @Get("verifications")
+  @ApiOperation({
+    summary:
+      "Get pending verifications (documents, bookings, and tenant registrations)",
+  })
+  async getPendingVerifications() {
+    return this.executeAdminAction(
+      () => this.adminService.getPendingVerifications(),
+      "Failed to fetch pending verifications",
+    );
+  }
+
+  @Post("rooms")
+  @ApiOperation({ summary: "Create a room listing (Admin only)" })
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadDir = join(process.cwd(), "uploads", "rooms");
+          if (!existsSync(uploadDir)) {
+            mkdirSync(uploadDir, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname).toLowerCase();
+          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
+          cb(null, `${safe}${ext}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        const allowed = new Set([
+          ".mp4",
+          ".mov",
+          ".webm",
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".webp",
+        ]);
+        const ext = extname(file.originalname).toLowerCase();
+        cb(
+          allowed.has(ext)
+            ? null
+            : new BadRequestException(
+                "Only images (jpg/png/webp) and videos (mp4/mov/webm) are allowed",
+              ),
+          allowed.has(ext),
+        );
+      },
+      limits: { fileSize: 200 * 1024 * 1024 },
+    }),
+  )
+  async createRoom(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: Record<string, any>,
+    @Request() req: any,
+  ) {
+    return this.executeAdminAction(async () => {
+      const host = req.get("host");
+      const protocol = req.protocol;
+
+      // Parse body fields that come as strings from FormData
+      const parseJsonField = (field: any, defaultValue: any = null): any => {
+        if (field === undefined || field === null || field === "") {
+          return defaultValue;
+        }
+        if (typeof field === "object") {
+          return field;
+        }
+        try {
+          return JSON.parse(field);
+        } catch {
+          return defaultValue;
+        }
+      };
+
+      const media: Array<{ type: string; url: string }> = [];
+      const existingMediaParsed = parseJsonField(body.existingMedia, []);
+      if (Array.isArray(existingMediaParsed)) {
+        media.push(...existingMediaParsed);
+      }
+
+      if (files && files.length) {
+        files.forEach((file) => {
+          const url = `${protocol}://${host}/uploads/rooms/${file.filename}`;
+          const type = file.mimetype.startsWith("image/")
+            ? "image"
+            : file.mimetype.startsWith("video/")
+              ? "video"
+              : "unknown";
+          media.push({ type, url });
+        });
+      }
+
+      const dto: any = {
+        ...body,
+        floor: Number(body.floor) || 0,
+        area: Number(body.area) || 0,
+        rent: Number(body.rent) || 0,
+        deposit: Number(body.deposit) || 0,
+        media,
+      };
+
+      // Parse amenities and rules from JSON strings
+      if (body.amenities) {
+        const parsed = parseJsonField(body.amenities, []);
+        if (Array.isArray(parsed)) {
+          dto.amenities = parsed;
+        }
+      }
+      if (body.rules) {
+        const parsed = parseJsonField(body.rules, []);
+        if (Array.isArray(parsed)) {
+          dto.rules = parsed;
+        }
+      }
+
+      return this.roomsService.create(dto as CreateRoomDto);
+    }, "Room operation failed");
+  }
+
+  @Put("rooms/:id")
+  @ApiOperation({ summary: "Update a room listing (Admin only)" })
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadDir = join(process.cwd(), "uploads", "rooms");
+          if (!existsSync(uploadDir)) {
+            mkdirSync(uploadDir, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname).toLowerCase();
+          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
+          cb(null, `${safe}${ext}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        const allowed = new Set([
+          ".mp4",
+          ".mov",
+          ".webm",
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".webp",
+        ]);
+        const ext = extname(file.originalname).toLowerCase();
+        cb(
+          allowed.has(ext)
+            ? null
+            : new BadRequestException(
+                "Only images (jpg/png/webp) and videos (mp4/mov/webm) are allowed",
+              ),
+          allowed.has(ext),
+        );
+      },
+      limits: { fileSize: 200 * 1024 * 1024 },
+    }),
+  )
+  async updateRoom(
+    @Param("id") id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: Record<string, any>,
+    @Request() req: any,
+  ) {
+    return this.executeAdminAction(async () => {
+      const bodyData = body || {};
+      const host = req.get("host");
+      const protocol = req.protocol;
+
+      // Parse body fields that come as strings from FormData
+      const parseJsonField = (field: any, defaultValue: any = null): any => {
+        if (field === undefined || field === null || field === "") {
+          return defaultValue;
+        }
+        if (typeof field === "object") {
+          return field;
+        }
+        try {
+          return JSON.parse(field);
+        } catch {
+          return defaultValue;
+        }
+      };
+
+      const media: Array<{ type: string; url: string }> = [];
+      const existingMediaParsed = parseJsonField(bodyData.existingMedia, []);
+      if (Array.isArray(existingMediaParsed)) {
+        media.push(...existingMediaParsed);
+      }
+
+      if (files && files.length) {
+        files.forEach((file) => {
+          const url = `${protocol}://${host}/uploads/rooms/${file.filename}`;
+          const type = file.mimetype.startsWith("image/")
+            ? "image"
+            : file.mimetype.startsWith("video/")
+              ? "video"
+              : "unknown";
+          media.push({ type, url });
+        });
+      }
+
+      const data: any = {};
+      if (bodyData.name !== undefined) data.name = bodyData.name;
+      if (bodyData.type !== undefined) data.type = bodyData.type;
+      if (bodyData.floor !== undefined) data.floor = Number(bodyData.floor);
+      if (bodyData.area !== undefined) data.area = Number(bodyData.area);
+      if (bodyData.rent !== undefined) data.rent = Number(bodyData.rent);
+      if (bodyData.deposit !== undefined)
+        data.deposit = Number(bodyData.deposit);
+      if (bodyData.description !== undefined)
+        data.description = bodyData.description || null;
+
+      if (bodyData.amenities !== undefined) {
+        const parsed = parseJsonField(bodyData.amenities, []);
+        data.amenities = Array.isArray(parsed) ? parsed : [];
+      }
+
+      if (bodyData.rules !== undefined) {
+        const parsed = parseJsonField(bodyData.rules, []);
+        data.rules = Array.isArray(parsed) ? parsed : [];
+      }
+
+      if (bodyData.existingMedia !== undefined || (files && files.length > 0)) {
+        data.media = media;
+      }
+
+      return this.roomsService.update(id, data);
+    }, "Room operation failed");
+  }
+
+  @Delete("rooms/:id")
+  @ApiOperation({ summary: "Delete a room listing (Admin only)" })
+  async deleteRoom(@Param("id") id: string) {
+    try {
+      const result = await this.roomsService.delete(id);
+      return { 
+        message: "Room deleted successfully",
+        room: result
+      };
+    } catch (error) {
+      // Check if it's a foreign key constraint error
+      if (error.code === 'P2003' || error.code === 'P2014') {
+        throw new BadRequestException(
+          "Cannot delete room because it has related records. The room has been archived instead."
+        );
+      }
+      throw new InternalServerErrorException("Failed to delete room");
+    }
+  }
+
+  @Post("upload/video")
+  @ApiOperation({ summary: "Upload room tour video (Admin only)" })
+  @UseInterceptors(
+    FileInterceptor("video", {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadDir = join(process.cwd(), "uploads", "rooms");
+          if (!existsSync(uploadDir)) {
+            mkdirSync(uploadDir, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname).toLowerCase();
+          const safe = Date.now() + "-" + Math.round(Math.random() * 1e9);
+          cb(null, `${safe}${ext}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        const allowed = new Set([".mp4", ".mov", ".webm"]);
+        const ext = extname(file.originalname).toLowerCase();
+        cb(
+          allowed.has(ext)
+            ? null
+            : new BadRequestException("Only mp4, mov, webm videos are allowed"),
+          allowed.has(ext),
+        );
+      },
+      limits: { fileSize: 100 * 1024 * 1024 },
+    }),
+  )
+  async uploadRoomVideo(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+  ) {
+    return this.executeAdminAction(async () => {
+      if (!file) {
+        throw new BadRequestException("Video file is required");
+      }
+      const host = req.get("host");
+      const protocol = req.protocol;
+      const videoUrl = `${protocol}://${host}/uploads/rooms/${file.filename}`;
+      return {
+        message: "Video uploaded successfully",
+        videoUrl,
+      };
+    }, "Room operation failed");
+  }
+
+  @Patch("tenants/:id/approve")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Approve a tenant account" })
+  @ApiResponse({ status: 200, description: "Tenant approved successfully" })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async approveTenant(@Param("id") userId: string) {
+    return this.executeAdminAction(
+      () => this.adminService.approveTenant(userId),
+      "Failed to approve tenant",
+    );
+  }
+
+  @Patch("tenants/:id/reject")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reject a tenant account" })
+  @ApiResponse({ status: 200, description: "Tenant rejected successfully" })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async rejectTenant(@Param("id") userId: string) {
+    return this.executeAdminAction(
+      () => this.adminService.rejectTenant(userId),
+      "Failed to reject tenant",
+    );
+  }
+
+  @Patch("tenants/:id/suspend")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Suspend a tenant account" })
+  @ApiResponse({ status: 200, description: "Tenant suspended successfully" })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async suspendTenant(@Param("id") userId: string) {
+    return this.executeAdminAction(
+      () => this.adminService.suspendTenant(userId),
+      "Failed to suspend tenant",
+    );
+  }
+
+  @Get("charts/revenue")
+  @ApiOperation({ summary: "Get monthly revenue data for charts" })
+  @ApiResponse({ status: 200, description: "Monthly revenue data" })
+  async getMonthlyRevenue() {
+    return this.adminService.getMonthlyRevenue();
+  }
+
+  @Get("charts/occupancy")
+  @ApiOperation({ summary: "Get occupancy data for charts" })
+  @ApiResponse({ status: 200, description: "Occupancy data" })
+  async getOccupancyData() {
+    return this.adminService.getOccupancyData();
+  }
+}
