@@ -18,6 +18,7 @@ import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { CancellationRequestModule } from "./modules/cancellation-requests/cancellation-request.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { HealthController } from "./health/health.controller";
 
 @Module({
   imports: [

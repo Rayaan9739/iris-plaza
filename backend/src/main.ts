@@ -4,39 +4,46 @@ import { json } from "express";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { Response } from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Frontend URL from environment
-  const frontendOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+  // Allow all origins for production deployment
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // CORS configuration - allow all origins in production
+  if (isProduction) {
+    app.enableCors({
+      origin: '*',
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+      credentials: true,
+    });
+  } else {
+    // Frontend URL from environment
+    const frontendOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
 
-  // Allow common dev ports
-  const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    frontendOrigin,
-  ];
+    // Allow common dev ports
+    const allowedOrigins = [
+      "http://localhost:5173",
+      "http://localhost:8080",
+      "http://localhost:8081",
+      frontendOrigin,
+    ];
 
-  // Parse JSON body
-  app.use(json({ limit: "1mb" }));
-
-  /**
-   * CORS configuration
-   */
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error("Not allowed by CORS"), false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  });
+    app.enableCors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Not allowed by CORS"), false);
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    });
+  }
 
   /**
    * Global API prefix
@@ -68,6 +75,26 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api/docs", app, document);
+
+  /**
+   * Health check endpoints for hosting platforms
+   * These routes are NOT under the /api prefix
+   */
+  const adapter = app.getHttpAdapter();
+  adapter.get('/', (req, res: Response) => {
+    res.json({ 
+      status: "API running", 
+      service: "Iris Plaza Backend",
+      version: process.env.npm_package_version || "1.0.0",
+      timestamp: new Date().toISOString()
+    });
+  });
+  adapter.get('/health', (req, res: Response) => {
+    res.json({ 
+      status: 'healthy',
+      timestamp: new Date().toISOString()
+    });
+  });
 
   /**
    * Start server
