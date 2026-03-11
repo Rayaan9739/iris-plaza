@@ -34,9 +34,6 @@ export class MaintenanceService {
       return tickets.map((ticket: any) => ({
         ...ticket,
         status: this.mapMaintenanceStatus(ticket.status),
-        requestedAmount: ticket.requestedAmount
-          ? Number(ticket.requestedAmount)
-          : null,
       }));
     } catch (error: any) {
       console.error("Error fetching tickets:", error);
@@ -61,18 +58,6 @@ export class MaintenanceService {
         .replace(/\s+/g, "_")
         .toUpperCase();
 
-      // Parse requestedAmount - set to null if not provided or not MONEY_REDUCTION
-      let requestedAmount: number | null = null;
-      if (normalizedCategory === "MONEY_REDUCTION") {
-        const amount = Number(dto.requestedAmount);
-        if (!Number.isFinite(amount) || amount <= 0) {
-          throw new BadRequestException(
-            "requestedAmount is required and must be a positive number for MONEY_REDUCTION category",
-          );
-        }
-        requestedAmount = amount;
-      }
-
       // Normalize priority to enum value
       const priorityStr = String(dto.priority || "MEDIUM").toUpperCase();
       const validPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -80,34 +65,14 @@ export class MaintenanceService {
         ? priorityStr
         : "MEDIUM";
 
-      // Build the ticket data - requestedAmount is only included for MONEY_REDUCTION
-      let bookingId = dto.bookingId;
-      if (normalizedCategory === "MONEY_REDUCTION" && !bookingId) {
-        const approvedBooking = await this.prisma.booking.findFirst({
-          where: { userId, status: "APPROVED" },
-          orderBy: { createdAt: "desc" },
-        });
-        if (!approvedBooking) {
-          throw new BadRequestException(
-            "No active approved booking found for MONEY_REDUCTION request",
-          );
-        }
-        bookingId = approvedBooking.id;
-      }
-
+      // Build the ticket data
       const ticketData: any = {
         title: dto.title,
         description: dto.description || "",
         category: normalizedCategory,
         tenantId: userId,
         priority: normalizedPriority,
-        bookingId,
       };
-
-      // Only add requestedAmount for MONEY_REDUCTION category
-      if (normalizedCategory === "MONEY_REDUCTION") {
-        ticketData.requestedAmount = requestedAmount;
-      }
 
       const created = await this.prisma.maintenanceTicket.create({
         data: ticketData,
@@ -162,21 +127,26 @@ export class MaintenanceService {
   }
 
   async findAll() {
-    return this.prisma.maintenanceTicket.findMany({
-      include: {
-        tenant: true,
-        booking: {
-          include: {
-            room: true,
+    try {
+      return await this.prisma.maintenanceTicket.findMany({
+        include: {
+          tenant: true,
+          booking: {
+            include: {
+              room: true,
+            },
           },
-        },
-      } as any,
-      orderBy: { createdAt: "desc" },
-    });
+        } as any,
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (error) {
+      console.error("Error fetching all maintenance tickets:", error);
+      return [];
+    }
   }
 
   /**
-   * Approve a maintenance request and apply money reduction if applicable
+   * Approve a maintenance request
    */
   async approveRequest(ticketId: string) {
     const ticket = await this.prisma.maintenanceTicket.findUnique({
@@ -209,109 +179,7 @@ export class MaintenanceService {
       } as any,
     });
 
-    // If it's a money reduction request, apply it to the current month payment
-    if (
-      ticket.category === "MONEY_REDUCTION" &&
-      ticket.requestedAmount &&
-      ticket.bookingId
-    ) {
-      const tenantId = ticket.tenantId!;
-      const bookingId = ticket.bookingId!;
-
-      await this.applyMoneyReduction(
-        tenantId,
-        bookingId,
-        Number(ticket.requestedAmount),
-      );
-    }
-
     return updated;
-  }
-
-  /**
-   * Apply money reduction to current month payment and add to next month
-   */
-  private async applyMoneyReduction(
-    tenantId: string,
-    bookingId: string,
-    reductionAmount: number,
-  ) {
-    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-
-    // Find current month payment
-    const currentPayment = await this.prisma.payment.findFirst({
-      where: {
-        userId: tenantId,
-        bookingId,
-        month: currentMonth,
-        type: "RENT" as any,
-      } as any,
-    });
-
-    if (currentPayment) {
-      const currentAmount = Number(currentPayment.amount || 0);
-      const newAmount = Math.max(0, currentAmount - reductionAmount);
-      const pendingAmount = reductionAmount;
-
-      // Update current month payment with reduced amount
-      await this.prisma.payment.update({
-        where: { id: currentPayment.id },
-        data: {
-          amount: newAmount as any,
-          pendingAmount: pendingAmount as any,
-        } as any,
-      });
-
-      // Create or update next month payment to include pending amount
-      const nextDate = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth() + 1,
-        1,
-      );
-      const nextMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
-
-      const booking = await this.prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: { room: true },
-      });
-
-      if (booking) {
-        const nextRent = Number(booking.room.rent || 0);
-        const nextPaymentAmount = nextRent + reductionAmount;
-
-        const nextPayment = await this.prisma.payment.findFirst({
-          where: {
-            userId: tenantId,
-            bookingId,
-            month: nextMonth,
-            type: "RENT" as any,
-          } as any,
-        });
-
-        if (nextPayment) {
-          await this.prisma.payment.update({
-            where: { id: nextPayment.id },
-            data: {
-              amount: nextPaymentAmount as any,
-              pendingAmount: reductionAmount as any,
-            } as any,
-          });
-        } else {
-          await this.prisma.payment.create({
-            data: {
-              userId: tenantId,
-              bookingId,
-              month: nextMonth,
-              amount: nextPaymentAmount as any,
-              pendingAmount: reductionAmount as any,
-              type: "RENT" as any,
-              status: "PENDING" as any,
-              description: `Monthly rent with pending reduction carry-over`,
-            } as any,
-          });
-        }
-      }
-    }
   }
 
   /**

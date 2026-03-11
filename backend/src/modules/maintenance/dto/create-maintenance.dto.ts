@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, IsIn } from "class-validator";
+import { IsString, IsOptional, IsIn } from "class-validator";
 
 export class CreateMaintenanceDto {
   @IsString()
@@ -14,11 +14,6 @@ export class CreateMaintenanceDto {
   @IsOptional()
   @IsIn(["LOW", "MEDIUM", "HIGH", "URGENT"])
   priority?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  requestedAmount?: number;
 
   @IsOptional()
   @IsString()

@@ -212,14 +212,10 @@ export class AdminController {
   @ApiOperation({ summary: "Approve maintenance request" })
   async approveMaintenanceRequest(
     @Param("id") id: string,
-    @Body() body: { amountToPayNow: number },
   ) {
     return this.executeAdminAction(
       () =>
-        this.adminService.approveMaintenanceRequest(
-          id,
-          Number(body.amountToPayNow),
-        ),
+        this.adminService.approveMaintenanceRequest(id),
       "Failed to approve maintenance request",
     );
   }

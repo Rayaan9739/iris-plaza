@@ -353,49 +353,44 @@ export class AdminService {
   }
 
   async getMaintenanceRequests() {
-    const requests = await (this.prisma.maintenanceTicket.findMany as any)({
-      include: {
-        user: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    try {
+      const requests = await this.prisma.maintenanceTicket.findMany({
+        include: {
+          tenant: true,
+          booking: {
+            include: {
+              room: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
 
-    const approvedBookings = await this.prisma.booking.findMany({
-      where: { status: "APPROVED" },
-      include: { room: { select: this.roomSafeSelect } },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const roomByUser = new Map<string, any>();
-    approvedBookings.forEach((booking) => {
-      if (!roomByUser.has(booking.userId)) {
-        roomByUser.set(booking.userId, booking.room);
-      }
-    });
-
-    return requests.map((req: any) => ({
-      ...req,
-      tenantId: req.tenantId ?? req.userId,
-      room: roomByUser.get(req.userId) || null,
-      status: this.mapMaintenanceStatus(req.status),
-      requestedAmount: req.requestedAmount ? Number(req.requestedAmount) : null,
-    }));
+      return requests.map((req: any) => ({
+        ...req,
+        tenantName: req.tenant
+          ? `${req.tenant.firstName || ""} ${req.tenant.lastName || ""}`.trim()
+          : "Unknown",
+        room: req.booking?.room || null,
+        user: req.tenant,
+        status: this.mapMaintenanceStatus(req.status),
+      }));
+    } catch (error) {
+      console.error("Error fetching maintenance requests:", error);
+      return [];
+    }
   }
 
   async approveMaintenanceRequest(id: string, amountToPayNow?: number) {
-    const ticket = await (this.prisma.maintenanceTicket.findUnique as any)({
-      where: { id },
-      include: { user: true },
-    });
-    if (!ticket) {
-      throw new NotFoundException("Maintenance request not found");
-    }
+    try {
+      const ticket = await this.prisma.maintenanceTicket.findUnique({
+        where: { id },
+        include: { tenant: true },
+      });
+      if (!ticket) {
+        throw new NotFoundException("Maintenance request not found");
+      }
 
-    const category = String(ticket.category || "")
-      .trim()
-      .replace(/\s+/g, "_")
-      .toUpperCase();
-    if (category !== "MONEY_REDUCTION") {
       const updated = await this.prisma.maintenanceTicket.update({
         where: { id },
         data: {
@@ -404,177 +399,15 @@ export class AdminService {
           resolution: "Approved by admin",
         },
       });
+
       return {
         ...updated,
         status: this.mapMaintenanceStatus(updated.status),
       };
+    } catch (error) {
+      console.error("Error approving maintenance request:", error);
+      throw error;
     }
-
-    const ticketAny = ticket as any;
-    const requestedAmount = Number(ticketAny.requestedAmount ?? 0);
-    if (!requestedAmount || requestedAmount <= 0) {
-      throw new BadRequestException(
-        "requestedAmount is required for MONEY_REDUCTION",
-      );
-    }
-
-    // Use tenantId for finding the booking
-    const tenantId = ticket.tenantId!;
-    if (!tenantId) {
-      throw new BadRequestException("Ticket has no tenant assigned");
-    }
-
-    const approvedBooking = await this.prisma.booking.findFirst({
-      where: { userId: tenantId, status: "APPROVED" },
-      include: { room: { select: this.roomSafeSelect } },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!approvedBooking) {
-      throw new BadRequestException(
-        "No active approved booking found for tenant",
-      );
-    }
-
-    const originalRent = Number(approvedBooking.room.rent || 0);
-    if (originalRent <= 0) {
-      throw new BadRequestException("Original room rent is invalid");
-    }
-
-    const effectivePayNow = Number(amountToPayNow);
-    if (!Number.isFinite(effectivePayNow) || effectivePayNow <= 0) {
-      throw new BadRequestException("amountToPayNow is required and must be > 0");
-    }
-    if (effectivePayNow > originalRent) {
-      throw new BadRequestException("amountToPayNow cannot be greater than monthly rent");
-    }
-
-    const pendingAmount = Math.max(0, originalRent - effectivePayNow);
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const nextMonth = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
-    const nextMonthRent = originalRent + pendingAmount;
-
-    return this.prisma.$transaction(async (tx) => {
-      const request = await tx.maintenanceTicket.update({
-        where: { id },
-        data: {
-          status: "RESOLVED",
-          resolvedAt: new Date(),
-          resolution: `Approved. amountToPayNow=${effectivePayNow}`,
-        },
-      });
-
-      const existingPayment = await tx.payment.findFirst({
-        where: {
-          userId: tenantId,
-          bookingId: approvedBooking.id,
-          type: "RENT" as any,
-          month: currentMonth,
-        } as any,
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (existingPayment) {
-        await tx.payment.update({
-          where: { id: existingPayment.id },
-          data: {
-            amount: originalRent as any,
-            amountPaid: null,
-            borrowedAmount: pendingAmount as any,
-            tenantId: ticketAny.userId ?? ticketAny.tenantId,
-            rentAmount: originalRent,
-            paidAmount: null,
-            pendingAmount,
-            status: "PENDING",
-            roomId: approvedBooking.roomId,
-            month: currentMonth,
-            description: `Money reduction approved. Pay now: ${effectivePayNow}, pending: ${pendingAmount}`,
-          } as any,
-        });
-      } else {
-        await tx.payment.create({
-          data: {
-            userId: tenantId,
-            tenantId: tenantId,
-            roomId: approvedBooking.roomId,
-            bookingId: approvedBooking.id,
-            amount: originalRent as any,
-            amountPaid: null,
-            borrowedAmount: pendingAmount as any,
-            rentAmount: originalRent,
-            paidAmount: null,
-            pendingAmount,
-            type: "RENT",
-            status: "PENDING",
-            gateway: "RAZORPAY",
-            month: currentMonth,
-            description: `Money reduction approved. Pay now: ${effectivePayNow}, pending: ${pendingAmount}`,
-          } as any,
-        });
-      }
-
-      const nextMonthPayment = await tx.payment.findFirst({
-        where: {
-          userId: tenantId,
-          bookingId: approvedBooking.id,
-          type: "RENT" as any,
-          month: nextMonth,
-        } as any,
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (nextMonthPayment) {
-        await tx.payment.update({
-          where: { id: nextMonthPayment.id },
-          data: {
-            amount: nextMonthRent as any,
-            tenantId: tenantId,
-            rentAmount: nextMonthRent,
-            pendingAmount: 0,
-            borrowedAmount: 0,
-            roomId: approvedBooking.roomId,
-            month: nextMonth,
-            description: `Next month rent includes previous pending amount: ${pendingAmount}`,
-          } as any,
-        });
-      } else {
-        await tx.payment.create({
-          data: {
-            userId: tenantId,
-            tenantId: tenantId,
-            roomId: approvedBooking.roomId,
-            bookingId: approvedBooking.id,
-            amount: nextMonthRent as any,
-            amountPaid: null,
-            borrowedAmount: 0,
-            rentAmount: nextMonthRent,
-            paidAmount: null,
-            pendingAmount: 0,
-            type: "RENT",
-            status: "PENDING",
-            gateway: "RAZORPAY",
-            month: nextMonth,
-            description: `Next month rent includes previous pending amount: ${pendingAmount}`,
-          } as any,
-        });
-      }
-
-      await this.notificationsService.create(tenantId, {
-        type: "PUSH",
-        title: "Maintenance Decision",
-        message: `Money reduction approved. Pay now ${effectivePayNow}. Pending ${pendingAmount} will be added to next month.`,
-      });
-      this.eventEmitter.emitDashboardUpdate(tenantId, {
-        maintenanceDecision: "APPROVED",
-      });
-
-      return {
-        ...request,
-        status: this.mapMaintenanceStatus(request.status),
-      };
-    });
   }
 
   async rejectMaintenanceRequest(id: string) {
