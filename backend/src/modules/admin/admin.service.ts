@@ -124,6 +124,35 @@ export class AdminService {
     });
   }
 
+  async getAdminRoom(id: string) {
+    try {
+      const room = await this.prisma.room.findUnique({
+        where: { id },
+        include: {
+          amenities: {
+            include: {
+              amenity: true
+            }
+          },
+          images: true,
+          media: true
+        }
+      });
+
+      if (!room) {
+        throw new NotFoundException("Room not found");
+      }
+
+      return room;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error("Error fetching admin room:", error);
+      throw error;
+    }
+  }
+
   async getAdminBookings() {
     return this.prisma.booking.findMany({
       include: {

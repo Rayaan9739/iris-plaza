@@ -91,6 +91,15 @@ export class AdminController {
     );
   }
 
+  @Get("rooms/:id")
+  @ApiOperation({ summary: "Get a room by ID for admin" })
+  async getRoom(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.adminService.getAdminRoom(id),
+      "Failed to fetch room",
+    );
+  }
+
   @Get("bookings")
   @ApiOperation({ summary: "Get all bookings for admin" })
   async getBookings() {
