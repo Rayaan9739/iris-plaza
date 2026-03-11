@@ -13,6 +13,7 @@ async function bootstrap() {
   // Allow specific origins (not wildcard '*' when credentials are enabled)
   const allowedOrigins = [
     "http://localhost:5173",
+    "http://localhost:8080",
     "https://cozy-home-ui.vercel.app",
   ];
 

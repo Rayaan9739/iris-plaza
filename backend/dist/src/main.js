@@ -8,6 +8,7 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const allowedOrigins = [
         "http://localhost:5173",
+        "http://localhost:8080",
         "https://cozy-home-ui.vercel.app",
     ];
     app.enableCors({

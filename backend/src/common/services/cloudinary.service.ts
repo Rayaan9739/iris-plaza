@@ -66,6 +66,8 @@ export class CloudinaryService {
         {
           folder,
           resource_type: "raw",
+          type: "upload",
+          access_mode: "public",
           format: file.originalname.split(".").pop() || "pdf",
         },
         (error, result) => {
@@ -96,6 +98,8 @@ export class CloudinaryService {
         {
           folder,
           resource_type: "raw",
+          type: "upload",
+          access_mode: "public",
           public_id: filename.replace(/\.[^/.]+$/, ""),
           format: filename.split(".").pop() || "pdf",
         },

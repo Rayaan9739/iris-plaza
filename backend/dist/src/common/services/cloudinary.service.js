@@ -47,6 +47,8 @@ let CloudinaryService = CloudinaryService_1 = class CloudinaryService {
             const uploadStream = cloudinary_1.v2.uploader.upload_stream({
                 folder,
                 resource_type: "raw",
+                type: "upload",
+                access_mode: "public",
                 format: file.originalname.split(".").pop() || "pdf",
             }, (error, result) => {
                 if (error) {
@@ -65,6 +67,8 @@ let CloudinaryService = CloudinaryService_1 = class CloudinaryService {
             const uploadStream = cloudinary_1.v2.uploader.upload_stream({
                 folder,
                 resource_type: "raw",
+                type: "upload",
+                access_mode: "public",
                 public_id: filename.replace(/\.[^/.]+$/, ""),
                 format: filename.split(".").pop() || "pdf",
             }, (error, result) => {
