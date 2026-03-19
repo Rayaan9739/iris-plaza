@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
@@ -10,6 +10,12 @@ type RuleRow = { room_id: string; rule: string };
 export class RoomsService {
   private readonly logger = new Logger(RoomsService.name);
   constructor(private prisma: PrismaService) {}
+
+  private toStartOfUtcDay(date: Date) {
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+  }
 
   private roomSafeSelect = {
     id: true,
@@ -218,6 +224,7 @@ export class RoomsService {
   @Cron(CronExpression.EVERY_5_MINUTES)
   async refreshExpiredOccupancies() {
     this.logger.log("Starting scheduled occupancy refresh...");
+    const normalizedTodayUtc = this.toStartOfUtcDay(new Date());
     
     const maxRetries = 3;
     const retryDelay = 5000; // 5 seconds
@@ -227,7 +234,8 @@ export class RoomsService {
         const result = await this.prisma.room.updateMany({
           where: {
             status: "OCCUPIED" as any,
-            occupiedUntil: { lt: new Date() },
+            // Release only when today's UTC date is after occupiedUntil UTC date.
+            occupiedUntil: { lt: normalizedTodayUtc },
           },
           data: {
             status: "AVAILABLE" as any,
@@ -254,8 +262,11 @@ export class RoomsService {
                                    errorMessage.includes("timeout");
         
         if (!isConnectionError || attempt === maxRetries) {
-          // Non-connection error or max retries reached - log and continue
-          this.logger.error("Occupancy refresh failed after all retries", error);
+          // Non-connection error or max retries reached
+          // Only log if it's not a connection error
+          if (!isConnectionError) {
+            this.logger.error("Occupancy refresh failed after all retries", error);
+          }
           return;
         }
         
@@ -275,21 +286,15 @@ export class RoomsService {
 
   async findAll() {
     try {
-      // Only perform read queries - no updates during GET requests
-      const now = new Date();
       const rooms = await this.prisma.room.findMany({
-        where: {
-          deletedAt: null,
-          status: "AVAILABLE" as any,
-          isAvailable: true,
-          OR: [{ availableAt: null }, { availableAt: { lte: now } }],
-        },
+        where: { deletedAt: null },
         select: this.roomSafeSelect,
       });
 
       const rulesMap = await this.getRulesByRoomIds(
         rooms.map((room) => room.id),
       );
+
       return rooms.map((room) => ({
         ...room,
         rules: rulesMap.get(room.id) ?? [],
@@ -319,6 +324,9 @@ export class RoomsService {
   }
 
   async create(createRoomDto: CreateRoomDto) {
+    console.log("[ROOMS SERVICE CREATE] Received type:", createRoomDto.type);
+    console.log("[ROOMS SERVICE CREATE] Full DTO:", JSON.stringify(createRoomDto));
+
     const payload: any = { ...(createRoomDto as any) };
     delete payload.existingMedia;
 
@@ -399,13 +407,16 @@ export class RoomsService {
   }
 
   async update(id: string, updateRoomDto: UpdateRoomDto) {
+    console.log("[ROOMS SERVICE UPDATE] Received type:", updateRoomDto.type);
+    console.log("[ROOMS SERVICE UPDATE] Full DTO:", JSON.stringify(updateRoomDto));
+
     const payload: any = { ...(updateRoomDto as any) };
     delete payload.existingMedia;
 
     const {
       amenities,
       rules,
-      status,
+      status: _status,
       media,
       // legacy
       images,
@@ -420,7 +431,6 @@ export class RoomsService {
     const data: any = {
       ...roomData,
       type: roomData.type as any,
-      status: status as any,
       amenities: this.buildAmenityCreateInput(amenities),
     };
 
@@ -484,14 +494,35 @@ export class RoomsService {
 
   // soft delete from database - preferred method
   async remove(id: string) {
-    return this.prisma.room.update({
-      where: { id },
-      data: { 
-        deletedAt: new Date(),
-        isAvailable: false,
-        status: "UNAVAILABLE" as any,
-      },
-    });
+    try {
+      const existingRoom = await this.prisma.room.findUnique({
+        where: { id },
+      });
+
+      if (!existingRoom) {
+        throw new NotFoundException(`Room with ID ${id} not found`);
+      }
+
+      if (existingRoom.deletedAt) {
+        throw new BadRequestException("Room is already deleted");
+      }
+
+      return await this.prisma.room.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          isAvailable: false,
+        },
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to delete room ${id}: ${errorMessage}`);
+      throw new BadRequestException("Failed to delete room");
+    }
   }
 
   // hard delete from database - throws error if room has related records
@@ -505,10 +536,9 @@ export class RoomsService {
       // If bookings exist, use soft delete instead
       return this.prisma.room.update({
         where: { id },
-        data: { 
+        data: {
           deletedAt: new Date(),
           isAvailable: false,
-          status: "UNAVAILABLE" as any,
         },
       });
     }
@@ -520,19 +550,37 @@ export class RoomsService {
   }
 
   async getAvailableRooms() {
-    // Only perform read queries - no updates during GET requests
-    const now = new Date();
     const rooms = await this.prisma.room.findMany({
       where: {
         deletedAt: null,
         status: "AVAILABLE" as any,
         isAvailable: true,
-        OR: [{ availableAt: null }, { availableAt: { lte: now } }],
       },
       select: this.roomSafeSelect,
     });
 
     const rulesMap = await this.getRulesByRoomIds(rooms.map((room) => room.id));
+
+    return rooms.map((room) => ({
+      ...room,
+      rules: rulesMap.get(room.id) ?? [],
+    }));
+  }
+
+  async findOccupiedRooms() {
+    const rooms = await this.prisma.room.findMany({
+      where: {
+        deletedAt: null,
+        status: "OCCUPIED" as any,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: this.roomSafeSelect,
+    });
+
+    const rulesMap = await this.getRulesByRoomIds(rooms.map((room) => room.id));
+
     return rooms.map((room) => ({
       ...room,
       rules: rulesMap.get(room.id) ?? [],

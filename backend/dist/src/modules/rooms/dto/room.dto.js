@@ -54,7 +54,11 @@ __decorate([
     (0, swagger_1.ApiProperty)({
         enum: room_type_enum_1.RoomType,
     }),
-    (0, class_transformer_1.Transform)(({ value }) => value?.trim()),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (!value)
+            return value;
+        return String(value).trim().replace(/\s+/g, "_").toUpperCase();
+    }),
     (0, class_validator_1.IsEnum)(room_type_enum_1.RoomType, {
         message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
     }),
@@ -85,6 +89,22 @@ __decorate([
 ], CreateRoomDto.prototype, "media", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: ["No smoking", "No pets"] }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (!value)
+            return [];
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === "string") {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : [];
+            }
+            catch {
+                return [];
+            }
+        }
+        return [];
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),
@@ -120,6 +140,22 @@ __decorate([
 ], CreateRoomDto.prototype, "deposit", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: ["WiFi", "AC"] }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (!value)
+            return [];
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === "string") {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : [];
+            }
+            catch {
+                return [];
+            }
+        }
+        return [];
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),
@@ -153,7 +189,11 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: room_type_enum_1.RoomType }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_transformer_1.Transform)(({ value }) => value?.trim()),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (!value)
+            return value;
+        return String(value).trim().replace(/\s+/g, "_").toUpperCase();
+    }),
     (0, class_validator_1.IsEnum)(room_type_enum_1.RoomType, {
         message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
     }),
@@ -184,6 +224,22 @@ __decorate([
 ], UpdateRoomDto.prototype, "media", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (!value)
+            return [];
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === "string") {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : [];
+            }
+            catch {
+                return [];
+            }
+        }
+        return [];
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),
@@ -223,6 +279,22 @@ __decorate([
 ], UpdateRoomDto.prototype, "deposit", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (!value)
+            return [];
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === "string") {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : [];
+            }
+            catch {
+                return [];
+            }
+        }
+        return [];
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),

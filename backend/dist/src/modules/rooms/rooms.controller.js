@@ -30,6 +30,9 @@ let RoomsController = class RoomsController {
     async getAvailableRooms() {
         return this.roomsService.getAvailableRooms();
     }
+    async findOccupiedRooms() {
+        return this.roomsService.findOccupiedRooms();
+    }
     async findOne(id) {
         return this.roomsService.findOne(id);
     }
@@ -38,6 +41,20 @@ let RoomsController = class RoomsController {
         body.area = Number(body.area);
         body.rent = Number(body.rent);
         body.deposit = Number(body.deposit);
+        const parseJsonField = (field, defaultValue = null) => {
+            if (field === undefined || field === null || field === "") {
+                return defaultValue;
+            }
+            if (typeof field === "object") {
+                return field;
+            }
+            try {
+                return JSON.parse(field);
+            }
+            catch {
+                return defaultValue;
+            }
+        };
         if (body["amenities[]"]) {
             body.amenities = Array.isArray(body["amenities[]"])
                 ? body["amenities[]"]
@@ -47,6 +64,20 @@ let RoomsController = class RoomsController {
             body.rules = Array.isArray(body["rules[]"])
                 ? body["rules[]"]
                 : [body["rules[]"]];
+        }
+        if (body.amenities && typeof body.amenities === "string") {
+            const parsed = parseJsonField(body.amenities, []);
+            if (Array.isArray(parsed)) {
+                body.amenities = parsed;
+                console.log("[CREATE ROOM] Parsed amenities:", body.amenities);
+            }
+        }
+        if (body.rules && typeof body.rules === "string") {
+            const parsed = parseJsonField(body.rules, []);
+            if (Array.isArray(parsed)) {
+                body.rules = parsed;
+                console.log("[CREATE ROOM] Parsed rules:", body.rules);
+            }
         }
         return this.roomsService.create(body);
     }
@@ -72,6 +103,13 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], RoomsController.prototype, "getAvailableRooms", null);
+__decorate([
+    (0, common_1.Get)("occupied"),
+    (0, swagger_1.ApiOperation)({ summary: "Get occupied rooms" }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], RoomsController.prototype, "findOccupiedRooms", null);
 __decorate([
     (0, common_1.Get)(":id"),
     (0, swagger_1.ApiOperation)({ summary: "Get room by ID" }),

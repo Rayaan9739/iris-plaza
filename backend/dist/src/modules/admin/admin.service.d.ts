@@ -83,6 +83,55 @@ export declare class AdminService {
             url: string;
         }[];
     }[]>;
+    getAdminRoom(id: string): Promise<{
+        amenities: ({
+            amenity: {
+                id: string;
+                description: string | null;
+                createdAt: Date;
+                name: string;
+                icon: string | null;
+            };
+        } & {
+            id: string;
+            roomId: string;
+            amenityId: string;
+        })[];
+        images: {
+            id: string;
+            roomId: string;
+            createdAt: Date;
+            url: string;
+            caption: string | null;
+            isPrimary: boolean;
+            order: number;
+        }[];
+        media: {
+            id: string;
+            roomId: string;
+            type: string;
+            createdAt: Date;
+            url: string;
+        }[];
+    } & {
+        id: string;
+        type: import(".prisma/client").$Enums.RoomType;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        name: string;
+        floor: number;
+        area: number;
+        rent: import("@prisma/client/runtime/library").Decimal;
+        deposit: import("@prisma/client/runtime/library").Decimal;
+        isAvailable: boolean;
+        occupiedFrom: Date | null;
+        occupiedUntil: Date | null;
+        availableAt: Date | null;
+        videoUrl: string | null;
+    }>;
     getAdminBookings(): Promise<({
         user: {
             id: string;
@@ -451,7 +500,7 @@ export declare class AdminService {
         uploadedAt: Date;
         reviewedAt: Date | null;
     }>;
-    getMaintenanceRequests(): Promise<any>;
+    getMaintenanceRequests(): Promise<any[]>;
     approveMaintenanceRequest(id: string, amountToPayNow?: number): Promise<{
         status: string;
         id: string;

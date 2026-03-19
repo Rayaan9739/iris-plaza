@@ -3,6 +3,5 @@ export declare class CreateMaintenanceDto {
     category: string;
     description?: string;
     priority?: string;
-    requestedAmount?: number;
     bookingId?: string;
 }

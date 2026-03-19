@@ -11,7 +11,6 @@
     "start:debug": "nest start --watch --debug",
     "start:prod": "node dist/main.js",
     "postinstall": "prisma generate",
-    
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -20,11 +19,9 @@
     "prisma:reset": "prisma migrate reset --force --skip-generate",
     "prisma:push": "prisma db push",
     "prisma:validate": "prisma validate",
-    
     "db:seed": "npm run prisma:seed",
     "db:reset": "npm run prisma:reset && npm run prisma:seed",
     "db:migrate": "npm run prisma:migrate",
-    
     "lint": "eslint \"{src,prisma}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,prisma}/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.ts\"",
@@ -33,7 +30,12 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r ts-node/register node_modules/.bin/jest --runInBand"
   },
-  "keywords": ["nestjs", "prisma", "rental-management", "backend"],
+  "keywords": [
+    "nestjs",
+    "prisma",
+    "rental-management",
+    "backend"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -64,15 +66,19 @@
     "class-validator": "^0.15.1",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
+    "docx": "^9.6.1",
+    "docxtemplater": "^3.68.3",
     "dotenv": "^17.3.1",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "number-to-words": "^1.2.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "pg": "^8.19.0",
+    "pizzip": "^3.2.0",
     "prisma": "^6.19.2",
     "razorpay": "^2.9.6",
     "reflect-metadata": "^0.2.2",
@@ -100,13 +106,19 @@
     "typescript": "^5.9.3"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   },

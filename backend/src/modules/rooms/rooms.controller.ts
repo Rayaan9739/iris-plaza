@@ -32,6 +32,12 @@ export class RoomsController {
     return this.roomsService.getAvailableRooms();
   }
 
+  @Get("occupied")
+  @ApiOperation({ summary: "Get occupied rooms" })
+  async findOccupiedRooms() {
+    return this.roomsService.findOccupiedRooms();
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "Get room by ID" })
   async findOne(@Param("id") id: string) {
@@ -50,6 +56,21 @@ export class RoomsController {
     body.rent = Number(body.rent);
     body.deposit = Number(body.deposit);
 
+    // Helper to parse JSON string fields safely
+    const parseJsonField = (field: any, defaultValue: any = null): any => {
+      if (field === undefined || field === null || field === "") {
+        return defaultValue;
+      }
+      if (typeof field === "object") {
+        return field;
+      }
+      try {
+        return JSON.parse(field);
+      } catch {
+        return defaultValue;
+      }
+    };
+
     // normalize arrays keys if necessary
     if (body["amenities[]"]) {
       body.amenities = Array.isArray(body["amenities[]"])
@@ -60,6 +81,22 @@ export class RoomsController {
       body.rules = Array.isArray(body["rules[]"])
         ? body["rules[]"]
         : [body["rules[]"]];
+    }
+
+    // Handle JSON string amenities and rules
+    if (body.amenities && typeof body.amenities === "string") {
+      const parsed = parseJsonField(body.amenities, []);
+      if (Array.isArray(parsed)) {
+        body.amenities = parsed;
+        console.log("[CREATE ROOM] Parsed amenities:", body.amenities);
+      }
+    }
+    if (body.rules && typeof body.rules === "string") {
+      const parsed = parseJsonField(body.rules, []);
+      if (Array.isArray(parsed)) {
+        body.rules = parsed;
+        console.log("[CREATE ROOM] Parsed rules:", body.rules);
+      }
     }
 
     return this.roomsService.create(body as CreateRoomDto);

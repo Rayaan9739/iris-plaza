@@ -35,6 +35,16 @@ let OcrService = OcrService_1 = class OcrService {
             throw new Error('Failed to process PDF screenshot');
         }
     }
+    async extractDocumentFromImage(buffer) {
+        try {
+            const { data: { text } } = await Tesseract.recognize(buffer, 'eng');
+            return this.parseDocumentText(text);
+        }
+        catch (error) {
+            this.logger.error('Error during document OCR:', error);
+            throw new Error('Failed to process document image');
+        }
+    }
     parseText(text) {
         const data = {
             rawText: text,
@@ -61,6 +71,30 @@ let OcrService = OcrService_1 = class OcrService {
             if (!isNaN(parsedDate.getTime())) {
                 data.date = parsedDate;
             }
+        }
+        return data;
+    }
+    parseDocumentText(text) {
+        const data = {
+            rawText: text,
+        };
+        const aadhaarNumber = text.match(/\d{4}\s?\d{4}\s?\d{4}/)?.[0]?.replace(/\s/g, '') || null;
+        if (aadhaarNumber) {
+            data.aadhaarNumber = aadhaarNumber;
+        }
+        if (text.includes("MALE") || text.includes("Male")) {
+            data.gender = "MALE";
+        }
+        else if (text.includes("FEMALE") || text.includes("Female")) {
+            data.gender = "FEMALE";
+        }
+        const fatherMatch = text.match(/S\/O\s+([A-Za-z\s]+)/i) || text.match(/D\/O\s+([A-Za-z\s]+)/i);
+        if (fatherMatch && fatherMatch[1]) {
+            data.fatherName = fatherMatch[1].trim();
+        }
+        const collegeMatch = text.match(/(?:University|College|Institute|WGSHA|School|Academy|Management)\s+([A-Za-z\s]+)/i);
+        if (collegeMatch && collegeMatch[1]) {
+            data.collegeName = collegeMatch[0].trim();
         }
         return data;
     }

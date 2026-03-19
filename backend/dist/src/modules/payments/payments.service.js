@@ -15,12 +15,14 @@ const library_1 = require("@prisma/client/runtime/library");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const event_emitter_service_1 = require("../../common/services/event-emitter.service");
 const notifications_service_1 = require("../notifications/notifications.service");
+const agreements_service_1 = require("../agreements/agreements.service");
 const ocr_service_1 = require("../../common/services/ocr.service");
 let PaymentsService = class PaymentsService {
-    constructor(prisma, eventEmitter, notificationsService, ocrService) {
+    constructor(prisma, eventEmitter, notificationsService, agreementsService, ocrService) {
         this.prisma = prisma;
         this.eventEmitter = eventEmitter;
         this.notificationsService = notificationsService;
+        this.agreementsService = agreementsService;
         this.ocrService = ocrService;
         this.roomSafeSelect = {
             id: true,
@@ -474,6 +476,14 @@ let PaymentsService = class PaymentsService {
                     comment: "Booking fully approved after mandatory payments confirmed.",
                 },
             });
+            console.log(`[Agreement] (Payments) Generating rental agreement for booking ${bookingId}...`);
+            try {
+                const agreementUrl = await this.agreementsService.generateRentalAgreement(bookingId);
+                console.log(`[Agreement] (Payments) Rental agreement generated for booking ${bookingId}: ${agreementUrl}`);
+            }
+            catch (error) {
+                console.error(`[Agreement] (Payments) Failed to generate rental agreement for booking ${bookingId}:`, error?.message || error);
+            }
             await this.notificationsService.create(booking.userId, {
                 type: "PUSH",
                 title: "Welcome Home!",
@@ -876,6 +886,7 @@ exports.PaymentsService = PaymentsService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         event_emitter_service_1.EventEmitterService,
         notifications_service_1.NotificationsService,
+        agreements_service_1.AgreementsService,
         ocr_service_1.OcrService])
 ], PaymentsService);
 //# sourceMappingURL=payments.service.js.map

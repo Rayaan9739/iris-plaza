@@ -94,6 +94,7 @@ export class BookingsController {
       roomId: body.roomId,
       moveInDate: body.moveInDate,
       moveOutDate: body.moveOutDate,
+      source: body.source,
     });
   }
 

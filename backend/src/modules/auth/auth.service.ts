@@ -67,6 +67,28 @@ export class AuthService {
       },
     });
 
+    // Try to update tenant profile with identity details (if fields exist in DB)
+    // This will be skipped if prisma client hasn't been regenerated
+    const { fatherName, relation, aadhaarNumber, gender, tenantAddress, collegeName } = signUpDto as any;
+    if (fatherName || relation || aadhaarNumber || gender || tenantAddress || collegeName) {
+      try {
+        await this.prisma.tenantProfile.update({
+          where: { userId: user.id },
+          data: {
+            ...(fatherName && { fatherName }),
+            ...(relation && { relation }),
+            ...(aadhaarNumber && { aadhaarNumber }),
+            ...(gender && { gender }),
+            ...(tenantAddress && { tenantAddress }),
+            ...(collegeName && { collegeName }),
+          },
+        });
+      } catch (err) {
+        // Ignore errors - fields may not exist yet in database
+        this.logger.log("Tenant profile update skipped - fields may not exist yet");
+      }
+    }
+
     const tokens = await this.generateTokens(user.id, user.phone, user.role);
 
     return {

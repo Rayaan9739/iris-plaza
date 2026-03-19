@@ -20,6 +20,8 @@ import {
   UsePipes,
   ValidationPipe,
 } from "@nestjs/common";
+import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
 import {
   ApiTags,
   ApiOperation,
@@ -30,7 +32,7 @@ import { FileInterceptor, AnyFilesInterceptor } from "@nestjs/platform-express";
 import { AdminService } from "./admin.service";
 import { RoomsService } from "@/modules/rooms/rooms.service";
 import { BookingsService } from "@/modules/bookings/bookings.service";
-import { CreateRoomDto } from "@/modules/rooms/dto/room.dto";
+import { CreateRoomDto, UpdateRoomDto } from "@/modules/rooms/dto/room.dto";
 import { JwtAuthGuard } from "@/modules/auth/guards/jwt-auth.guard";
 import { RolesGuard } from "@/common/guards/roles.guard";
 import { Roles } from "@/common/decorators/roles.decorator";
@@ -260,6 +262,11 @@ export class AdminController {
     @Request() req: any,
   ) {
     return this.executeAdminAction(async () => {
+      console.log("[CREATE ROOM] Raw body keys:", Object.keys(body || {}));
+      console.log("[CREATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
+      console.log("[CREATE ROOM] Received room type:", body.type);
+      console.log("[CREATE ROOM] Full body:", JSON.stringify(body));
+
       // Parse body fields that come as strings from FormData
       const parseJsonField = (field: any, defaultValue: any = null): any => {
         if (field === undefined || field === null || field === "") {
@@ -308,7 +315,9 @@ export class AdminController {
         media,
       };
 
-      // Parse amenities and rules from JSON strings
+      // Parse amenities and rules from JSON strings BEFORE validation
+      console.log("[CREATE ROOM] Raw amenities:", body.amenities);
+      console.log("[CREATE ROOM] Raw rules:", body.rules);
       if (body.amenities) {
         const parsed = parseJsonField(body.amenities, []);
         if (Array.isArray(parsed)) {
@@ -320,6 +329,20 @@ export class AdminController {
         if (Array.isArray(parsed)) {
           dto.rules = parsed;
         }
+      }
+      console.log("[CREATE ROOM] Parsed amenities:", dto.amenities);
+      console.log("[CREATE ROOM] Parsed rules:", dto.rules);
+
+      // Validate the DTO explicitly with transformation
+      const dtoInstance = plainToInstance(CreateRoomDto, dto);
+      const errors = await validate(dtoInstance);
+      if (errors.length > 0) {
+        const errorMessages = errors.map(e => 
+          Object.values(e.constraints || {}).join(', ')
+        ).join('; ');
+        console.log("[CREATE ROOM] Validation errors:", errorMessages);
+        console.log("[CREATE ROOM] DTO instance type value:", dtoInstance.type);
+        throw new BadRequestException(errorMessages);
       }
 
       return this.roomsService.create(dto as CreateRoomDto);
@@ -337,6 +360,11 @@ export class AdminController {
     @Request() req: any,
   ) {
     return this.executeAdminAction(async () => {
+      console.log("[UPDATE ROOM] Raw body keys:", Object.keys(body || {}));
+      console.log("[UPDATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
+      console.log("[UPDATE ROOM] Received room type:", body.type);
+      console.log("[UPDATE ROOM] Full body:", JSON.stringify(body));
+
       const bodyData = body || {};
 
       // Parse body fields that come as strings from FormData
@@ -401,6 +429,20 @@ export class AdminController {
 
       if (bodyData.existingMedia !== undefined || (files && files.length > 0)) {
         data.media = media;
+      }
+
+      // Validate the DTO explicitly with transformation
+      if (data.type !== undefined) {
+        const dtoInstance = plainToInstance(UpdateRoomDto, data);
+        const errors = await validate(dtoInstance);
+        if (errors.length > 0) {
+          const errorMessages = errors.map(e => 
+            Object.values(e.constraints || {}).join(', ')
+          ).join('; ');
+          console.log("[UPDATE ROOM] Validation errors:", errorMessages);
+          console.log("[UPDATE ROOM] DTO instance type value:", dtoInstance.type);
+          throw new BadRequestException(errorMessages);
+        }
       }
 
       return this.roomsService.update(id, data);

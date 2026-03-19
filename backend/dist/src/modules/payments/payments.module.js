@@ -12,6 +12,7 @@ const payments_service_1 = require("./payments.service");
 const payments_controller_1 = require("./payments.controller");
 const event_emitter_service_1 = require("../../common/services/event-emitter.service");
 const notifications_module_1 = require("../notifications/notifications.module");
+const agreements_module_1 = require("../agreements/agreements.module");
 const ocr_service_1 = require("../../common/services/ocr.service");
 const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 let PaymentsModule = class PaymentsModule {
@@ -19,7 +20,7 @@ let PaymentsModule = class PaymentsModule {
 exports.PaymentsModule = PaymentsModule;
 exports.PaymentsModule = PaymentsModule = __decorate([
     (0, common_1.Module)({
-        imports: [notifications_module_1.NotificationsModule],
+        imports: [notifications_module_1.NotificationsModule, agreements_module_1.AgreementsModule],
         controllers: [payments_controller_1.PaymentsController],
         providers: [payments_service_1.PaymentsService, event_emitter_service_1.EventEmitterService, ocr_service_1.OcrService, cloudinary_service_1.CloudinaryService],
         exports: [payments_service_1.PaymentsService, event_emitter_service_1.EventEmitterService, ocr_service_1.OcrService, cloudinary_service_1.CloudinaryService],

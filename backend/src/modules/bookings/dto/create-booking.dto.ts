@@ -50,4 +50,8 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   deposit?: string;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
 }

@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/prisma/prisma.service";
 import { EventEmitterService } from "@/common/services/event-emitter.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
+import { AgreementsService } from "@/modules/agreements/agreements.service";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { OcrService, ExtractedPaymentData } from "@/common/services/ocr.service";
 
@@ -12,6 +13,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private eventEmitter: EventEmitterService,
     private notificationsService: NotificationsService,
+    private agreementsService: AgreementsService,
     private ocrService: OcrService,
   ) {}
 
@@ -564,6 +566,19 @@ export class PaymentsService {
           comment: "Booking fully approved after mandatory payments confirmed.",
         },
       });
+
+      // Generate rental agreement after payment-based approval.
+      // Keep this non-blocking so payment flow cannot fail due to document generation.
+      console.log(`[Agreement] (Payments) Generating rental agreement for booking ${bookingId}...`);
+      try {
+        const agreementUrl = await this.agreementsService.generateRentalAgreement(bookingId);
+        console.log(`[Agreement] (Payments) Rental agreement generated for booking ${bookingId}: ${agreementUrl}`);
+      } catch (error: any) {
+        console.error(
+          `[Agreement] (Payments) Failed to generate rental agreement for booking ${bookingId}:`,
+          error?.message || error,
+        );
+      }
 
       // Send notification
       await this.notificationsService.create(booking.userId, {

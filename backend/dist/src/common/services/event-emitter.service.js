@@ -9,13 +9,14 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EventEmitterService = exports.BOOKING_EXPIRED_EVENT = exports.BOOKING_UPDATED_EVENT = exports.PAYMENT_UPDATED_EVENT = exports.DASHBOARD_UPDATE_EVENT = void 0;
+exports.EventEmitterService = exports.ROOM_UPDATED_EVENT = exports.BOOKING_EXPIRED_EVENT = exports.BOOKING_UPDATED_EVENT = exports.PAYMENT_UPDATED_EVENT = exports.DASHBOARD_UPDATE_EVENT = void 0;
 const common_1 = require("@nestjs/common");
 const event_emitter_1 = require("@nestjs/event-emitter");
 exports.DASHBOARD_UPDATE_EVENT = "tenant:dataUpdated";
 exports.PAYMENT_UPDATED_EVENT = "payment:updated";
 exports.BOOKING_UPDATED_EVENT = "booking:updated";
 exports.BOOKING_EXPIRED_EVENT = "booking:expired";
+exports.ROOM_UPDATED_EVENT = "room:updated";
 let EventEmitterService = class EventEmitterService {
     constructor(eventEmitter) {
         this.eventEmitter = eventEmitter;
@@ -49,6 +50,13 @@ let EventEmitterService = class EventEmitterService {
         this.eventEmitter.emit(exports.BOOKING_EXPIRED_EVENT, {
             userId,
             bookingId,
+            timestamp: new Date(),
+            data,
+        });
+    }
+    emitRoomUpdated(roomId, data) {
+        this.eventEmitter.emit(exports.ROOM_UPDATED_EVENT, {
+            roomId,
             timestamp: new Date(),
             data,
         });

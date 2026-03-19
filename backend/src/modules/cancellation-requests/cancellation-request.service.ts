@@ -16,6 +16,23 @@ export class CancellationRequestService {
       throw new BadRequestException("Booking not found");
     }
 
+    // Check if booking can be cancelled
+    const cancellableStatuses = ["APPROVED", "APPROVED_PENDING_PAYMENT"];
+    if (!cancellableStatuses.includes(booking.status)) {
+      throw new BadRequestException(
+        `Cannot cancel booking with status ${booking.status}. Only confirmed bookings can be cancelled.`
+      );
+    }
+
+    // Check if there's already a pending cancellation request
+    const existingRequest = await this.prisma.cancellationRequest.findUnique({
+      where: { bookingId: dto.bookingId },
+    });
+
+    if (existingRequest && existingRequest.status === "PENDING") {
+      throw new BadRequestException("A cancellation request is already pending");
+    }
+
     return this.prisma.cancellationRequest.upsert({
       where: { bookingId: dto.bookingId },
       create: {
@@ -201,7 +218,16 @@ export class CancellationRequestService {
     try {
       await this.processApprovedRequests();
     } catch (error) {
-      console.error("Error processing approved cancellation requests:", error);
+      // Only log non-connection errors
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isConnectionError = errorMessage.includes('P1001') || 
+                               errorMessage.includes('connection') ||
+                               errorMessage.includes('timeout') ||
+                               errorMessage.includes('database server');
+      
+      if (!isConnectionError) {
+        console.error("Error processing approved cancellation requests:", error);
+      }
     }
   }
 
@@ -210,7 +236,9 @@ export class CancellationRequestService {
     const booking = await this.prisma.booking.findFirst({
       where: {
         userId,
-        status: "APPROVED",
+        status: {
+          in: ["APPROVED", "APPROVED_PENDING_PAYMENT"]
+        }
       },
     });
 

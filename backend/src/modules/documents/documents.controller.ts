@@ -11,7 +11,12 @@ import {
   UploadedFile,
   BadRequestException,
   Query,
+  Res,
 } from "@nestjs/common";
+import { Response } from "express";
+import * as path from "path";
+import * as fs from "fs";
+import * as https from "https";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { DocumentsService } from "./documents.service";
@@ -42,8 +47,53 @@ export class DocumentsController {
     return this.documentsService.findMyDocuments(req.user.userId);
   }
 
+  @Get(":id/view")
+  @ApiOperation({ summary: "Stream document file" })
+  async viewDocument(
+    @Param("id") id: string,
+    @Request() req: any,
+    @Res() res: Response,
+  ) {
+    const document = await this.documentsService.findOne(id);
+    
+    // Check ownership OR if admin
+    if (document.userId !== req.user.userId && req.user.role !== 'ADMIN') {
+      throw new BadRequestException("Unauthorized access to this document");
+    }
+
+    if (!document.fileUrl) {
+      throw new BadRequestException("Document URL not found");
+    }
+
+    const fileName = document.fileName || `document_${id}`;
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Content-Type", document.mimeType || "application/pdf");
+
+    // Handle Cloudinary URL
+    if (document.fileUrl.startsWith("http")) {
+      https.get(document.fileUrl, (proxyRes) => {
+        proxyRes.pipe(res);
+      }).on("error", (err) => {
+        console.error("Error proxying file from Cloudinary:", err);
+        res.status(500).send("Error retrieving file");
+      });
+      return;
+    }
+
+    // Handle local file
+    const filePath = path.isAbsolute(document.fileUrl) 
+      ? document.fileUrl 
+      : path.join(process.cwd(), document.fileUrl);
+    
+    if (fs.existsSync(filePath)) {
+      fs.createReadStream(filePath).pipe(res);
+    } else {
+      throw new BadRequestException("File not found on server");
+    }
+  }
+
   @Get(":id")
-  @ApiOperation({ summary: "Get document by ID" })
+  @ApiOperation({ summary: "Get document metadata by ID" })
   async findOne(@Param("id") id: string) {
     return this.documentsService.findOne(id);
   }
@@ -79,6 +129,7 @@ export class DocumentsController {
       const result = isImage
         ? await this.cloudinaryService.uploadImage(file, "iris-plaza/documents")
         : await this.cloudinaryService.uploadRaw(file, "iris-plaza/documents");
+
       return {
         fileUrl: result.secure_url,
         fileName: file.originalname,

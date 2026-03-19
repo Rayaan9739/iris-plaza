@@ -14,6 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DocumentsController = void 0;
 const common_1 = require("@nestjs/common");
+const path = require("path");
+const fs = require("fs");
+const https = require("https");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const documents_service_1 = require("./documents.service");
@@ -31,6 +34,36 @@ let DocumentsController = class DocumentsController {
     }
     async getMyDocumentsAlias(req) {
         return this.documentsService.findMyDocuments(req.user.userId);
+    }
+    async viewDocument(id, req, res) {
+        const document = await this.documentsService.findOne(id);
+        if (document.userId !== req.user.userId && req.user.role !== 'ADMIN') {
+            throw new common_1.BadRequestException("Unauthorized access to this document");
+        }
+        if (!document.fileUrl) {
+            throw new common_1.BadRequestException("Document URL not found");
+        }
+        const fileName = document.fileName || `document_${id}`;
+        res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+        res.setHeader("Content-Type", document.mimeType || "application/pdf");
+        if (document.fileUrl.startsWith("http")) {
+            https.get(document.fileUrl, (proxyRes) => {
+                proxyRes.pipe(res);
+            }).on("error", (err) => {
+                console.error("Error proxying file from Cloudinary:", err);
+                res.status(500).send("Error retrieving file");
+            });
+            return;
+        }
+        const filePath = path.isAbsolute(document.fileUrl)
+            ? document.fileUrl
+            : path.join(process.cwd(), document.fileUrl);
+        if (fs.existsSync(filePath)) {
+            fs.createReadStream(filePath).pipe(res);
+        }
+        else {
+            throw new common_1.BadRequestException("File not found on server");
+        }
     }
     async findOne(id) {
         return this.documentsService.findOne(id);
@@ -87,8 +120,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], DocumentsController.prototype, "getMyDocumentsAlias", null);
 __decorate([
+    (0, common_1.Get)(":id/view"),
+    (0, swagger_1.ApiOperation)({ summary: "Stream document file" }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Request)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], DocumentsController.prototype, "viewDocument", null);
+__decorate([
     (0, common_1.Get)(":id"),
-    (0, swagger_1.ApiOperation)({ summary: "Get document by ID" }),
+    (0, swagger_1.ApiOperation)({ summary: "Get document metadata by ID" }),
     __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

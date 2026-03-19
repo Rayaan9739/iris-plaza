@@ -64,6 +64,7 @@ let BookingsController = class BookingsController {
             roomId: body.roomId,
             moveInDate: body.moveInDate,
             moveOutDate: body.moveOutDate,
+            source: body.source,
         });
     }
     async cancel(id) {

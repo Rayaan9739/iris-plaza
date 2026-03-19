@@ -24,6 +24,16 @@ let CancellationRequestService = class CancellationRequestService {
         if (!booking) {
             throw new common_1.BadRequestException("Booking not found");
         }
+        const cancellableStatuses = ["APPROVED", "APPROVED_PENDING_PAYMENT"];
+        if (!cancellableStatuses.includes(booking.status)) {
+            throw new common_1.BadRequestException(`Cannot cancel booking with status ${booking.status}. Only confirmed bookings can be cancelled.`);
+        }
+        const existingRequest = await this.prisma.cancellationRequest.findUnique({
+            where: { bookingId: dto.bookingId },
+        });
+        if (existingRequest && existingRequest.status === "PENDING") {
+            throw new common_1.BadRequestException("A cancellation request is already pending");
+        }
         return this.prisma.cancellationRequest.upsert({
             where: { bookingId: dto.bookingId },
             create: {
@@ -177,14 +187,23 @@ let CancellationRequestService = class CancellationRequestService {
             await this.processApprovedRequests();
         }
         catch (error) {
-            console.error("Error processing approved cancellation requests:", error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const isConnectionError = errorMessage.includes('P1001') ||
+                errorMessage.includes('connection') ||
+                errorMessage.includes('timeout') ||
+                errorMessage.includes('database server');
+            if (!isConnectionError) {
+                console.error("Error processing approved cancellation requests:", error);
+            }
         }
     }
     async getMyRequest(userId) {
         const booking = await this.prisma.booking.findFirst({
             where: {
                 userId,
-                status: "APPROVED",
+                status: {
+                    in: ["APPROVED", "APPROVED_PENDING_PAYMENT"]
+                }
             },
         });
         if (!booking) {

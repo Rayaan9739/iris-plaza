@@ -546,7 +546,6 @@ enum NotificationType {
   MAINTENANCE_UPDATE
   ANNOUNCEMENT
   SYSTEM
-  CONTACT_FORM
 }
 
 enum NotificationStatus {

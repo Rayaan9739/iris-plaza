@@ -48,6 +48,48 @@ __decorate([
     (0, class_validator_1.MaxLength)(50),
     __metadata("design:type", String)
 ], SignUpDto.prototype, "lastName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "John Smith" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "fatherName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "S/O" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "relation", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "1234 5678 9012" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "aadhaarNumber", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "Male" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "gender", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "Bangalore" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "tenantAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "Manipal University" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "collegeName", void 0);
 class SignInDto {
 }
 exports.SignInDto = SignInDto;

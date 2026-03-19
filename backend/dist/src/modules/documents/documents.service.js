@@ -12,9 +12,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DocumentsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const DOCUMENT_TYPE_MAPPING = {
+    "ID_CARD": "COLLEGE_ID",
+    "PHOTO": "TENANT_PHOTO",
+    "AADHAAR": "AADHAAR",
+    "COLLEGE_ID": "COLLEGE_ID",
+    "TENANT_PHOTO": "TENANT_PHOTO",
+};
 let DocumentsService = class DocumentsService {
     constructor(prisma) {
         this.prisma = prisma;
+    }
+    mapDocumentType(type) {
+        const normalizedType = type?.toUpperCase();
+        return DOCUMENT_TYPE_MAPPING[normalizedType] || type;
     }
     async findAll() {
         return this.prisma.document.findMany({
@@ -37,10 +48,15 @@ let DocumentsService = class DocumentsService {
         return document;
     }
     async create(userId, data) {
+        const mappedType = this.mapDocumentType(data.type);
+        const validTypes = ["AADHAAR", "COLLEGE_ID", "TENANT_PHOTO", "ID_CARD", "PROOF_OF_INCOME", "ADDRESS_PROOF", "PHOTO", "AGREEMENT", "OTHER"];
+        if (!validTypes.includes(mappedType)) {
+            throw new common_1.BadRequestException(`Invalid document type: ${data.type}`);
+        }
         return this.prisma.document.create({
             data: {
                 name: data.name,
-                type: data.type,
+                type: mappedType,
                 fileUrl: data.fileUrl,
                 fileName: data.fileName,
                 fileSize: data.fileSize,

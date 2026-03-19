@@ -49,7 +49,7 @@ async function generateMissingAgreementDocuments() {
 
     // Extract filename from agreement URL
     const fileUrl = agreement.agreementUrl;
-    const fileName = fileUrl.split('/').pop() || 'agreement.pdf';
+    const fileName = fileUrl.split('/').pop() || 'agreement.docx';
 
     try {
       await prisma.document.create({

@@ -14,11 +14,14 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
 const common_1 = require("@nestjs/common");
+const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const admin_service_1 = require("./admin.service");
 const rooms_service_1 = require("../rooms/rooms.service");
 const bookings_service_1 = require("../bookings/bookings.service");
+const room_dto_1 = require("../rooms/dto/room.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
@@ -50,6 +53,9 @@ let AdminController = class AdminController {
     }
     async getRooms() {
         return this.executeAdminAction(() => this.adminService.getAdminRooms(), "Failed to fetch rooms");
+    }
+    async getRoom(id) {
+        return this.executeAdminAction(() => this.adminService.getAdminRoom(id), "Failed to fetch room");
     }
     async getBookings() {
         return this.executeAdminAction(() => this.adminService.getAdminBookings(), "Failed to fetch bookings");
@@ -87,8 +93,8 @@ let AdminController = class AdminController {
     async getMaintenanceRequests() {
         return this.executeAdminAction(() => this.adminService.getMaintenanceRequests(), "Failed to fetch maintenance requests");
     }
-    async approveMaintenanceRequest(id, body) {
-        return this.executeAdminAction(() => this.adminService.approveMaintenanceRequest(id, Number(body.amountToPayNow)), "Failed to approve maintenance request");
+    async approveMaintenanceRequest(id) {
+        return this.executeAdminAction(() => this.adminService.approveMaintenanceRequest(id), "Failed to approve maintenance request");
     }
     async rejectMaintenanceRequest(id) {
         return this.executeAdminAction(() => this.adminService.rejectMaintenanceRequest(id), "Failed to reject maintenance request");
@@ -98,6 +104,10 @@ let AdminController = class AdminController {
     }
     async createRoom(files, body, req) {
         return this.executeAdminAction(async () => {
+            console.log("[CREATE ROOM] Raw body keys:", Object.keys(body || {}));
+            console.log("[CREATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
+            console.log("[CREATE ROOM] Received room type:", body.type);
+            console.log("[CREATE ROOM] Full body:", JSON.stringify(body));
             const parseJsonField = (field, defaultValue = null) => {
                 if (field === undefined || field === null || field === "") {
                     return defaultValue;
@@ -141,6 +151,8 @@ let AdminController = class AdminController {
                 deposit: Number(body.deposit) || 0,
                 media,
             };
+            console.log("[CREATE ROOM] Raw amenities:", body.amenities);
+            console.log("[CREATE ROOM] Raw rules:", body.rules);
             if (body.amenities) {
                 const parsed = parseJsonField(body.amenities, []);
                 if (Array.isArray(parsed)) {
@@ -153,11 +165,25 @@ let AdminController = class AdminController {
                     dto.rules = parsed;
                 }
             }
+            console.log("[CREATE ROOM] Parsed amenities:", dto.amenities);
+            console.log("[CREATE ROOM] Parsed rules:", dto.rules);
+            const dtoInstance = (0, class_transformer_1.plainToInstance)(room_dto_1.CreateRoomDto, dto);
+            const errors = await (0, class_validator_1.validate)(dtoInstance);
+            if (errors.length > 0) {
+                const errorMessages = errors.map(e => Object.values(e.constraints || {}).join(', ')).join('; ');
+                console.log("[CREATE ROOM] Validation errors:", errorMessages);
+                console.log("[CREATE ROOM] DTO instance type value:", dtoInstance.type);
+                throw new common_1.BadRequestException(errorMessages);
+            }
             return this.roomsService.create(dto);
         }, "Room operation failed");
     }
     async updateRoom(id, files, body, req) {
         return this.executeAdminAction(async () => {
+            console.log("[UPDATE ROOM] Raw body keys:", Object.keys(body || {}));
+            console.log("[UPDATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
+            console.log("[UPDATE ROOM] Received room type:", body.type);
+            console.log("[UPDATE ROOM] Full body:", JSON.stringify(body));
             const bodyData = body || {};
             const parseJsonField = (field, defaultValue = null) => {
                 if (field === undefined || field === null || field === "") {
@@ -219,6 +245,16 @@ let AdminController = class AdminController {
             }
             if (bodyData.existingMedia !== undefined || (files && files.length > 0)) {
                 data.media = media;
+            }
+            if (data.type !== undefined) {
+                const dtoInstance = (0, class_transformer_1.plainToInstance)(room_dto_1.UpdateRoomDto, data);
+                const errors = await (0, class_validator_1.validate)(dtoInstance);
+                if (errors.length > 0) {
+                    const errorMessages = errors.map(e => Object.values(e.constraints || {}).join(', ')).join('; ');
+                    console.log("[UPDATE ROOM] Validation errors:", errorMessages);
+                    console.log("[UPDATE ROOM] DTO instance type value:", dtoInstance.type);
+                    throw new common_1.BadRequestException(errorMessages);
+                }
             }
             return this.roomsService.update(id, data);
         }, "Room operation failed");
@@ -288,6 +324,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getRooms", null);
+__decorate([
+    (0, common_1.Get)("rooms/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get a room by ID for admin" }),
+    __param(0, (0, common_1.Param)("id")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getRoom", null);
 __decorate([
     (0, common_1.Get)("bookings"),
     (0, swagger_1.ApiOperation)({ summary: "Get all bookings for admin" }),
@@ -384,9 +428,8 @@ __decorate([
     (0, common_1.Patch)("maintenance/:id/approve"),
     (0, swagger_1.ApiOperation)({ summary: "Approve maintenance request" }),
     __param(0, (0, common_1.Param)("id")),
-    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "approveMaintenanceRequest", null);
 __decorate([

@@ -13,20 +13,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AgreementsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
-const pdf_lib_1 = require("pdf-lib");
 const schedule_1 = require("@nestjs/schedule");
 const cloudinary_service_1 = require("../../common/services/cloudinary.service");
+const notifications_service_1 = require("../notifications/notifications.service");
+const agreement_template_service_1 = require("../../../templates/agreement-template.service");
 let AgreementsService = AgreementsService_1 = class AgreementsService {
-    constructor(prisma, cloudinaryService) {
+    constructor(prisma, cloudinaryService, notificationsService) {
         this.prisma = prisma;
         this.cloudinaryService = cloudinaryService;
+        this.notificationsService = notificationsService;
         this.logger = new common_1.Logger(AgreementsService_1.name);
+    }
+    toStartOfUtcDay(date) {
+        return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
     }
     async generateRentalAgreement(bookingId) {
         const booking = await this.prisma.booking.findUnique({
             where: { id: bookingId },
             include: {
-                user: true,
+                user: {
+                    include: {
+                        tenantProfile: true,
+                    },
+                },
                 room: true,
             },
         });
@@ -36,38 +45,68 @@ let AgreementsService = AgreementsService_1 = class AgreementsService {
         const existingAgreement = await this.prisma.agreement.findUnique({
             where: { bookingId },
         });
-        if (existingAgreement?.agreementUrl) {
-            return existingAgreement.agreementUrl;
+        if (existingAgreement) {
+            console.log(`[Agreement] Existing agreement found for booking ${bookingId}, will regenerate with latest template`);
         }
-        const pdfBytes = await this.createAgreementPdf(booking);
-        const fileName = `agreement_${bookingId}.pdf`;
+        else {
+            console.log(`[Agreement] No existing agreement for booking ${bookingId}, generating new agreement`);
+        }
+        const tenantProfile = booking.user.tenantProfile;
+        const moveInDate = booking.moveInDate || booking.startDate || new Date();
+        const moveOutDate = booking.moveOutDate || booking.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        const rentAmountWords = (0, agreement_template_service_1.numberToWords)(Number(booking.room.rent) || 0);
+        const depositAmountWords = (0, agreement_template_service_1.numberToWords)(Number(booking.room.deposit) || 0);
+        const agreementMonths = (0, agreement_template_service_1.calculateMonths)(moveInDate, moveOutDate);
+        const templateData = {
+            tenant_name: `${booking.user.firstName || ""} ${booking.user.lastName || ""}`.trim() || "N/A",
+            relation: tenantProfile?.relation || "N/A",
+            father_name: tenantProfile?.fatherName || "N/A",
+            tenant_address: tenantProfile?.tenantAddress || booking.user?.address || "N/A",
+            aadhaar_number: tenantProfile?.aadhaarNumber || "N/A",
+            college_name: tenantProfile?.collegeName || "N/A",
+            room_number: booking.room.name || "N/A",
+            floor: String(booking.room?.floor ?? "N/A"),
+            rent_amount: Number(booking.room.rent) || 0,
+            rent_amount_words: rentAmountWords,
+            deposit_amount: Number(booking.room.deposit) || 0,
+            deposit_amount_words: depositAmountWords,
+            start_date: (0, agreement_template_service_1.formatDate)(moveInDate),
+            end_date: (0, agreement_template_service_1.formatDate)(moveOutDate),
+            agreement_months: agreementMonths,
+            agreement_date: (0, agreement_template_service_1.formatDate)(new Date()),
+        };
+        const docxBytes = await (0, agreement_template_service_1.generateAgreementDocx)(templateData);
+        const fileName = `agreement_${bookingId}.docx`;
         let agreementUrl;
         try {
-            const result = await this.cloudinaryService.uploadBuffer(pdfBytes, fileName, "iris-plaza/agreement");
+            const result = await this.cloudinaryService.uploadBuffer(docxBytes, fileName, "iris-plaza/agreement");
             agreementUrl = result.secure_url;
+            console.log(`[Agreement] DOCX uploaded to Cloudinary: ${agreementUrl}`);
         }
         catch (error) {
             console.error("Failed to upload agreement to Cloudinary:", error);
             throw new Error("Failed to generate rental agreement");
         }
-        const agreementData = {
+        console.log(`[Agreement] Updating agreement record in database for booking ${bookingId}`);
+        const dbAgreementData = {
             bookingId,
             agreementUrl,
-            status: "ACTIVE",
+            status: "PENDING_SIGNATURE",
             startDate: booking.moveInDate || booking.startDate || new Date(),
             endDate: booking.moveOutDate || booking.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
             monthlyRent: booking.room.rent,
             securityDeposit: booking.room.deposit,
+            updatedAt: new Date(),
         };
         if (existingAgreement) {
             await this.prisma.agreement.update({
                 where: { bookingId },
-                data: agreementData,
+                data: dbAgreementData,
             });
         }
         else {
             await this.prisma.agreement.create({
-                data: agreementData,
+                data: dbAgreementData,
             });
         }
         const documentData = {
@@ -77,7 +116,7 @@ let AgreementsService = AgreementsService_1 = class AgreementsService {
             type: "AGREEMENT",
             fileUrl: agreementUrl,
             fileName: fileName,
-            status: "APPROVED",
+            status: "SUBMITTED",
         };
         const existingDocument = await this.prisma.document.findUnique({
             where: { id: `agreement-${bookingId}` },
@@ -96,223 +135,21 @@ let AgreementsService = AgreementsService_1 = class AgreementsService {
                 },
             });
         }
+        await this.notificationsService.create(booking.userId, {
+            type: "PUSH",
+            title: "Rental Agreement Ready",
+            message: "Your rental agreement is ready for signature. Please sign it from your Documents page.",
+        });
         return agreementUrl;
     }
-    async createAgreementPdf(booking) {
-        const pdfDoc = await pdf_lib_1.PDFDocument.create();
-        const page = pdfDoc.addPage([595.28, 841.89]);
-        const font = await pdfDoc.embedFont(pdf_lib_1.StandardFonts.Helvetica);
-        const fontBold = await pdfDoc.embedFont(pdf_lib_1.StandardFonts.HelveticaBold);
-        page.drawText("RENTAL AGREEMENT", {
-            x: 180,
-            y: 800,
-            size: 20,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        let y = 750;
-        const lineHeight = 20;
-        page.drawText(`This Rental Agreement is made on ${new Date().toLocaleDateString()} between:`, {
-            x: 50,
-            y,
-            size: 12,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight * 1.5;
-        page.drawText("LANDLORD/OWNER: Iris Plaza Management", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight * 1.5;
-        page.drawText("TENANT:", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        const tenantName = `${booking.user.firstName || ""} ${booking.user.lastName || ""}`.trim();
-        page.drawText(`Name: ${tenantName}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        const tenantAddress = booking.user.address || "N/A";
-        page.drawText(`Address: ${tenantAddress}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight * 1.5;
-        page.drawText("PROPERTY DETAILS:", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        page.drawText(`Room: ${booking.room.name || "N/A"}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        page.drawText(`Floor: ${booking.room.floor || "N/A"}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        page.drawText(`Area: ${booking.room.area || "N/A"} sq ft`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight * 1.5;
-        page.drawText("RENTAL TERMS:", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        const moveInDate = booking.moveInDate || booking.startDate;
-        const moveOutDate = booking.moveOutDate || booking.endDate;
-        page.drawText(`Move-in Date: ${moveInDate ? new Date(moveInDate).toLocaleDateString() : "N/A"}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        page.drawText(`Agreement End Date: ${moveOutDate ? new Date(moveOutDate).toLocaleDateString() : "N/A"}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight * 1.5;
-        page.drawText("PAYMENT DETAILS:", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        const rentAmount = Number(booking.room.rent || 0);
-        page.drawText(`Monthly Rent: Rs ${rentAmount.toLocaleString("en-IN")}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        const depositAmount = Number(booking.room.deposit || 0);
-        page.drawText(`Security Deposit: Rs ${depositAmount.toLocaleString("en-IN")}`, {
-            x: 70,
-            y,
-            size: 11,
-            font,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight * 2;
-        page.drawText("TERMS AND CONDITIONS:", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-            color: (0, pdf_lib_1.rgb)(0, 0, 0),
-        });
-        y -= lineHeight;
-        const terms = [
-            "1. The tenant agrees to pay rent on time every month.",
-            "2. The security deposit will be refunded at the end of the agreement term.",
-            "3. The tenant must maintain the room in good condition.",
-            "4. Any damages beyond normal wear and tear will be deducted from the deposit.",
-            "5. Either party must give 30 days notice before terminating this agreement.",
-            "6. The landlord reserves the right to enter the room for maintenance with prior notice.",
-        ];
-        for (const term of terms) {
-            y -= lineHeight;
-            if (y < 100)
-                break;
-            page.drawText(term, {
-                x: 70,
-                y,
-                size: 10,
-                font,
-                color: (0, pdf_lib_1.rgb)(0, 0, 0),
-            });
-        }
-        y -= lineHeight * 2;
-        page.drawText("SIGNATURES:", {
-            x: 50,
-            y,
-            size: 12,
-            font: fontBold,
-        });
-        y -= lineHeight * 2;
-        page.drawText("_________________________", {
-            x: 50,
-            y,
-            size: 11,
-            font,
-        });
-        page.drawText("Landlord/Owner", {
-            x: 50,
-            y: y - 15,
-            size: 10,
-            font,
-        });
-        page.drawText("_________________________", {
-            x: 350,
-            y,
-            size: 11,
-            font,
-        });
-        page.drawText("Tenant", {
-            x: 350,
-            y: y - 15,
-            size: 10,
-            font,
-        });
-        page.drawText("Generated by Iris Plaza", {
-            x: 200,
-            y: 30,
-            size: 9,
-            font,
-            color: (0, pdf_lib_1.rgb)(0.5, 0.5, 0.5),
-        });
-        const pdfBytes = await pdfDoc.save();
-        return Buffer.from(pdfBytes);
-    }
     async findByBooking(bookingId) {
-        return this.prisma.agreement.findUnique({
+        console.log(`[Agreement] findByBooking called with bookingId: ${bookingId}`);
+        const agreement = await this.prisma.agreement.findUnique({
             where: { bookingId },
             include: { booking: { include: { user: true, room: true } } },
         });
+        console.log(`[Agreement] Found agreement: ${agreement ? agreement.id : 'null'} for booking ${bookingId}`);
+        return agreement;
     }
     async findByBookingWithUser(bookingId) {
         return this.prisma.agreement.findUnique({
@@ -351,25 +188,94 @@ let AgreementsService = AgreementsService_1 = class AgreementsService {
             },
         });
     }
-    async signAsTenant(bookingId) {
+    async signAsTenant(bookingId, signatureDataUrl) {
+        const agreement = await this.prisma.agreement.findUnique({
+            where: { bookingId },
+            include: { booking: { include: { user: { include: { tenantProfile: true } }, room: true } } },
+        });
+        if (!agreement) {
+            throw new common_1.NotFoundException("Agreement not found");
+        }
+        let tenantSignatureUrl;
+        if (signatureDataUrl) {
+            try {
+                const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, "");
+                const signatureBuffer = Buffer.from(base64Data, 'base64');
+                const result = await this.cloudinaryService.uploadBuffer(signatureBuffer, `tenant_signature_${bookingId}.png`, "iris-plaza/signatures");
+                tenantSignatureUrl = result.secure_url;
+                console.log(`[Agreement] Tenant signature uploaded: ${tenantSignatureUrl}`);
+            }
+            catch (error) {
+                console.error("Failed to upload tenant signature:", error);
+            }
+        }
+        const updatedAgreement = await this.prisma.agreement.findUnique({
+            where: { bookingId },
+        });
+        const newStatus = (updatedAgreement?.adminSigned && tenantSignatureUrl)
+            ? "ACTIVE"
+            : "PENDING_SIGNATURE";
+        if (newStatus === "ACTIVE") {
+            await this.notificationsService.create(agreement.booking.userId, {
+                type: "PUSH",
+                title: "Rental Agreement Activated",
+                message: "Your rental agreement has been fully executed. You can download it from the Documents section.",
+            });
+        }
         return this.prisma.agreement.update({
             where: { bookingId },
             data: {
                 tenantSigned: true,
                 tenantSignedAt: new Date(),
-                status: "PENDING_SIGNATURE",
+                status: newStatus,
             },
+            include: { booking: { include: { user: true, room: true } } },
         });
     }
-    async signAsAdmin(bookingId) {
-        return this.prisma.agreement.update({
+    async signAsAdmin(bookingId, signatureDataUrl) {
+        const agreement = await this.prisma.agreement.findUnique({
+            where: { bookingId },
+            include: { booking: { include: { user: { include: { tenantProfile: true } }, room: true } } },
+        });
+        if (!agreement) {
+            throw new common_1.NotFoundException("Agreement not found");
+        }
+        let adminSignatureUrl;
+        if (signatureDataUrl) {
+            try {
+                const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, "");
+                const signatureBuffer = Buffer.from(base64Data, 'base64');
+                const result = await this.cloudinaryService.uploadBuffer(signatureBuffer, `admin_signature_${bookingId}.png`, "iris-plaza/signatures");
+                adminSignatureUrl = result.secure_url;
+                console.log(`[Agreement] Admin signature uploaded: ${adminSignatureUrl}`);
+            }
+            catch (error) {
+                console.error("Failed to upload admin signature:", error);
+            }
+        }
+        const updatedAgreement = await this.prisma.agreement.findUnique({
+            where: { bookingId },
+        });
+        const newStatus = (updatedAgreement?.tenantSigned && adminSignatureUrl)
+            ? "ACTIVE"
+            : "SIGNED";
+        const updated = await this.prisma.agreement.update({
             where: { bookingId },
             data: {
                 adminSigned: true,
                 adminSignedAt: new Date(),
-                status: "SIGNED",
+                status: newStatus,
             },
+            include: { booking: { include: { user: true, room: true } } },
         });
+        if (newStatus === "ACTIVE") {
+            await this.notificationsService.create(updated.booking.userId, {
+                type: "PUSH",
+                title: "Rental Agreement Activated",
+                message: "Your rental agreement has been fully executed. You can download it from the Documents section.",
+            });
+        }
+        return updated;
     }
     async getAgreementUrl(bookingId) {
         const agreement = await this.prisma.agreement.findUnique({
@@ -379,12 +285,12 @@ let AgreementsService = AgreementsService_1 = class AgreementsService {
     }
     async expireAgreements() {
         this.logger.log('Running scheduled task to expire agreements...');
-        const now = new Date();
+        const normalizedTodayUtc = this.toStartOfUtcDay(new Date());
         const expiredAgreements = await this.prisma.agreement.findMany({
             where: {
                 status: "ACTIVE",
                 endDate: {
-                    lte: now
+                    lt: normalizedTodayUtc
                 }
             },
             include: {
@@ -425,6 +331,7 @@ __decorate([
 exports.AgreementsService = AgreementsService = AgreementsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        cloudinary_service_1.CloudinaryService])
+        cloudinary_service_1.CloudinaryService,
+        notifications_service_1.NotificationsService])
 ], AgreementsService);
 //# sourceMappingURL=agreements.service.js.map

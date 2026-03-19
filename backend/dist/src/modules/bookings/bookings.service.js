@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var BookingsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingsService = void 0;
 const common_1 = require("@nestjs/common");
@@ -16,12 +17,13 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const notifications_service_1 = require("../notifications/notifications.service");
 const agreements_service_1 = require("../agreements/agreements.service");
 const event_emitter_service_1 = require("../../common/services/event-emitter.service");
-let BookingsService = class BookingsService {
+let BookingsService = BookingsService_1 = class BookingsService {
     constructor(prisma, notificationsService, agreementsService, eventEmitter) {
         this.prisma = prisma;
         this.notificationsService = notificationsService;
         this.agreementsService = agreementsService;
         this.eventEmitter = eventEmitter;
+        this.logger = new common_1.Logger(BookingsService_1.name);
         this.roomSafeSelect = {
             id: true,
             name: true,
@@ -51,6 +53,16 @@ let BookingsService = class BookingsService {
             return null;
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : null;
+    }
+    toStartOfUtcDay(date) {
+        return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    }
+    normalizeDateInputUtc(value, fieldName) {
+        const parsed = new Date(String(value));
+        if (Number.isNaN(parsed.getTime())) {
+            throw new common_1.BadRequestException(`Invalid ${fieldName}`);
+        }
+        return this.toStartOfUtcDay(parsed);
     }
     monthKey(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -151,68 +163,139 @@ let BookingsService = class BookingsService {
     }
     async create(input) {
         console.log("BOOKING SERVICE CREATE INPUT:", input);
-        const { userId, roomId, moveInDate, moveOutDate, } = input;
+        const { userId, roomId, moveInDate, moveOutDate, source, } = input;
         if (!userId || !roomId || !moveInDate) {
             console.error("BOOKING VALIDATION FAILED:", { userId, roomId, moveInDate });
             throw new common_1.BadRequestException("userId, roomId and moveInDate are required");
         }
-        const startDate = new Date(String(moveInDate));
-        if (Number.isNaN(startDate.getTime())) {
-            throw new common_1.BadRequestException("Invalid moveInDate");
-        }
+        const normalizedRoomId = String(roomId);
+        const normalizedMoveInDate = this.normalizeDateInputUtc(String(moveInDate), "moveInDate");
         if (!moveOutDate) {
             throw new common_1.BadRequestException("moveOutDate is required");
         }
-        const parsedCheckoutDate = new Date(moveOutDate);
-        if (Number.isNaN(parsedCheckoutDate.getTime())) {
-            throw new common_1.BadRequestException("Invalid moveOutDate");
-        }
-        if (parsedCheckoutDate <= startDate) {
+        const normalizedMoveOutDate = this.normalizeDateInputUtc(String(moveOutDate), "moveOutDate");
+        if (normalizedMoveOutDate <= normalizedMoveInDate) {
             throw new common_1.BadRequestException("moveOutDate must be after moveInDate");
         }
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             throw new common_1.BadRequestException("User not found");
         }
+        const existingUserBooking = await this.prisma.booking.findFirst({
+            where: {
+                userId,
+                status: {
+                    in: ["PENDING_APPROVAL", "APPROVED"]
+                }
+            }
+        });
+        if (existingUserBooking) {
+            throw new common_1.BadRequestException("You already have an active room or pending request");
+        }
+        const occupiedRoom = await this.prisma.room.findFirst({
+            where: {
+                status: "OCCUPIED",
+                bookings: {
+                    some: {
+                        userId,
+                        status: "APPROVED"
+                    }
+                }
+            }
+        });
+        if (occupiedRoom) {
+            throw new common_1.BadRequestException("You already occupy a room");
+        }
         const room = await this.prisma.room.findUnique({
-            where: { id: roomId },
+            where: { id: normalizedRoomId },
             select: {
                 id: true,
                 name: true,
+                deletedAt: true,
                 status: true,
                 isAvailable: true,
+                occupiedUntil: true,
                 rent: true,
                 deposit: true,
             },
         });
-        if (!room) {
+        if (!room || room.deletedAt) {
             throw new common_1.BadRequestException("Room not found");
+        }
+        const normalizedRoomStatus = String(room.status || "").toUpperCase();
+        const occupiedUntilRaw = room.occupiedUntil;
+        const occupiedUntilDate = occupiedUntilRaw ? new Date(occupiedUntilRaw) : null;
+        const normalizedOccupiedUntilDate = occupiedUntilDate && !Number.isNaN(occupiedUntilDate.getTime())
+            ? this.toStartOfUtcDay(occupiedUntilDate)
+            : null;
+        if (normalizedRoomStatus === "RESERVED") {
+            throw new common_1.BadRequestException("Room is already reserved");
+        }
+        if (normalizedRoomStatus === "OCCUPIED") {
+            if (!normalizedOccupiedUntilDate) {
+                throw new common_1.BadRequestException("Invalid occupied room state - no occupiedUntil date");
+            }
+            if (normalizedMoveInDate <= normalizedOccupiedUntilDate) {
+                const formattedDate = normalizedOccupiedUntilDate.toISOString().split('T')[0];
+                throw new common_1.BadRequestException(`Room is occupied until ${formattedDate}. Move-in date must be after.`);
+            }
+        }
+        else if (normalizedRoomStatus !== "AVAILABLE") {
+            throw new common_1.BadRequestException("Room is not available for booking");
+        }
+        const existingActiveBooking = await this.prisma.booking.findFirst({
+            where: {
+                roomId: normalizedRoomId,
+                status: {
+                    in: ["PENDING_APPROVAL", "APPROVED"],
+                },
+            },
+            select: { id: true, status: true },
+        });
+        if (existingActiveBooking) {
+            throw new common_1.BadRequestException("Room already has an active booking request");
         }
         const internalRent = Number(room.rent ?? 0);
         const internalDeposit = Number(room.deposit ?? 0);
-        const booking = await this.prisma.booking.create({
-            data: {
-                userId,
-                roomId,
-                startDate,
-                moveInDate: startDate,
-                endDate: parsedCheckoutDate,
-                moveOutDate: parsedCheckoutDate,
-                checkoutDate: parsedCheckoutDate,
-                status: "PENDING_APPROVAL",
-                expiresAt: null,
-                statusHistory: {
-                    create: {
-                        status: "PENDING_APPROVAL",
-                        comment: `Booking request submitted (rent ${internalRent}, deposit ${internalDeposit}). Waiting for admin approval.`,
+        const roomName = String(room.name || "this room");
+        const txResult = await this.prisma.$transaction(async (tx) => {
+            const booking = await tx.booking.create({
+                data: {
+                    userId,
+                    roomId: normalizedRoomId,
+                    startDate: normalizedMoveInDate,
+                    moveInDate: normalizedMoveInDate,
+                    endDate: normalizedMoveOutDate,
+                    moveOutDate: normalizedMoveOutDate,
+                    checkoutDate: normalizedMoveOutDate,
+                    status: "PENDING_APPROVAL",
+                    expiresAt: null,
+                    statusHistory: {
+                        create: {
+                            status: "PENDING_APPROVAL",
+                            comment: `Booking request submitted (rent ${internalRent}, deposit ${internalDeposit}). Waiting for admin approval.`,
+                        },
                     },
                 },
-            },
-            include: { room: { select: this.roomSafeSelect }, user: true },
+            });
+            if (normalizedRoomStatus === "AVAILABLE") {
+                await tx.room.update({
+                    where: { id: normalizedRoomId },
+                    data: {
+                        status: "RESERVED",
+                        isAvailable: false,
+                    },
+                });
+            }
+            return { bookingId: booking.id, roomName };
         });
-        await this.notifyAllAdmins("New booking request", `New booking request received for room ${room.name}.`);
+        this.eventEmitter.emitRoomUpdated(normalizedRoomId, {
+            status: normalizedRoomStatus === "OCCUPIED" ? "OCCUPIED" : "RESERVED",
+            isAvailable: false,
+        });
+        await this.notifyAllAdmins("New booking request", `New booking request received for room ${txResult.roomName}.`);
         return this.prisma.booking.findUnique({
-            where: { id: booking.id },
+            where: { id: txResult.bookingId },
             include: {
                 room: { select: this.roomSafeSelect },
                 user: true,
@@ -225,6 +308,7 @@ let BookingsService = class BookingsService {
         const booking = await this.findOne(id);
         const normalizedStatus = String(status || "").toUpperCase();
         const currentStatus = String(booking.status || "").toUpperCase();
+        console.log(`[BookingStatus] updateStatus called for booking ${id}: ${currentStatus} -> ${normalizedStatus}`);
         const allowedTransitions = {
             PENDING_APPROVAL: ["APPROVED", "APPROVED_PENDING_PAYMENT", "REJECTED", "CANCELLED"],
             PENDING: ["APPROVED", "APPROVED_PENDING_PAYMENT", "REJECTED", "CANCELLED"],
@@ -251,6 +335,11 @@ let BookingsService = class BookingsService {
                     occupiedUntil,
                 },
             });
+            this.eventEmitter.emitRoomUpdated(booking.roomId, {
+                status: "OCCUPIED",
+                occupiedFrom,
+                occupiedUntil,
+            });
             await this.prisma.user.update({
                 where: { id: booking.userId },
                 data: { accountStatus: "ACTIVE" },
@@ -260,8 +349,10 @@ let BookingsService = class BookingsService {
                 title: "Booking Approved",
                 message: "Your booking has been approved by the admin. Your room is now ready for move-in.",
             });
+            console.log(`[Agreement] Generating rental agreement for booking ${booking.id}...`);
             try {
                 const agreementUrl = await this.agreementsService.generateRentalAgreement(booking.id);
+                console.log(`[Agreement] Rental agreement generated successfully for booking ${booking.id}: ${agreementUrl}`);
                 await this.notificationsService.create(booking.userId, {
                     type: "PUSH",
                     title: "Rental Agreement Generated",
@@ -269,7 +360,8 @@ let BookingsService = class BookingsService {
                 });
             }
             catch (error) {
-                console.error("Failed to generate rental agreement:", error);
+                console.error(`[Agreement] Failed to generate rental agreement for booking ${booking.id}:`, error?.message || error);
+                console.log(`[Agreement] Booking ${booking.id} approved successfully (agreement generation failed but booking is active)`);
             }
         }
         if (normalizedStatus === "APPROVED_PENDING_PAYMENT") {
@@ -352,15 +444,27 @@ let BookingsService = class BookingsService {
             }
         }
         if (normalizedStatus === "REJECTED" || normalizedStatus === "CANCELLED") {
-            await this.prisma.room.update({
+            const currentRoom = await this.prisma.room.findUnique({
                 where: { id: booking.roomId },
-                data: {
-                    status: "AVAILABLE",
-                    isAvailable: true,
-                    occupiedFrom: null,
-                    occupiedUntil: null,
-                },
+                select: { status: true, occupiedUntil: true },
             });
+            const shouldRemainOccupied = currentRoom?.status === "OCCUPIED" &&
+                currentRoom?.occupiedUntil &&
+                new Date(currentRoom.occupiedUntil) > new Date();
+            if (!shouldRemainOccupied) {
+                await this.prisma.room.update({
+                    where: { id: booking.roomId },
+                    data: {
+                        status: "AVAILABLE",
+                        isAvailable: true,
+                        occupiedFrom: null,
+                        occupiedUntil: null,
+                    },
+                });
+            }
+            else {
+                this.logger.log(`Room ${booking.roomId} remains OCCUPIED until ${currentRoom.occupiedUntil}`);
+            }
             updateData.expiresAt = new Date();
             if (normalizedStatus === "REJECTED") {
                 await this.notificationsService.create(booking.userId, {
@@ -371,15 +475,27 @@ let BookingsService = class BookingsService {
             }
         }
         if (normalizedStatus === "EXPIRED") {
-            await this.prisma.room.update({
+            const currentRoom = await this.prisma.room.findUnique({
                 where: { id: booking.roomId },
-                data: {
-                    status: "AVAILABLE",
-                    isAvailable: true,
-                    occupiedFrom: null,
-                    occupiedUntil: null,
-                },
+                select: { status: true, occupiedUntil: true },
             });
+            const shouldRemainOccupied = currentRoom?.status === "OCCUPIED" &&
+                currentRoom?.occupiedUntil &&
+                new Date(currentRoom.occupiedUntil) > new Date();
+            if (!shouldRemainOccupied) {
+                await this.prisma.room.update({
+                    where: { id: booking.roomId },
+                    data: {
+                        status: "AVAILABLE",
+                        isAvailable: true,
+                        occupiedFrom: null,
+                        occupiedUntil: null,
+                    },
+                });
+            }
+            else {
+                this.logger.log(`Room ${booking.roomId} remains OCCUPIED until ${currentRoom.occupiedUntil}`);
+            }
         }
         const updated = await this.prisma.booking.update({
             where: { id },
@@ -448,10 +564,6 @@ let BookingsService = class BookingsService {
     async reject(id) {
         const booking = await this.findOne(id);
         const updated = await this.updateStatus(id, "REJECTED", "Booking rejected by admin");
-        await this.prisma.user.update({
-            where: { id: booking.userId },
-            data: { accountStatus: "REJECTED", isApproved: false },
-        });
         return updated;
     }
     async checkExpiredCheckouts() {
@@ -622,7 +734,7 @@ let BookingsService = class BookingsService {
     }
 };
 exports.BookingsService = BookingsService;
-exports.BookingsService = BookingsService = __decorate([
+exports.BookingsService = BookingsService = BookingsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         notifications_service_1.NotificationsService,

@@ -12,9 +12,8 @@ async function bootstrap() {
   // CORS configuration for production deployment
   // Allow specific origins (not wildcard '*' when credentials are enabled)
   const allowedOrigins = [
-    "http://localhost:5173",
     "http://localhost:8080",
-    "https://cozy-home-ui.vercel.app",
+    "https://iris-plaza.vercel.app",
   ];
 
   app.enableCors({

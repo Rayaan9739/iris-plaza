@@ -51,6 +51,25 @@ let AuthService = AuthService_1 = class AuthService {
                 tenantProfile: true,
             },
         });
+        const { fatherName, relation, aadhaarNumber, gender, tenantAddress, collegeName } = signUpDto;
+        if (fatherName || relation || aadhaarNumber || gender || tenantAddress || collegeName) {
+            try {
+                await this.prisma.tenantProfile.update({
+                    where: { userId: user.id },
+                    data: {
+                        ...(fatherName && { fatherName }),
+                        ...(relation && { relation }),
+                        ...(aadhaarNumber && { aadhaarNumber }),
+                        ...(gender && { gender }),
+                        ...(tenantAddress && { tenantAddress }),
+                        ...(collegeName && { collegeName }),
+                    },
+                });
+            }
+            catch (err) {
+                this.logger.log("Tenant profile update skipped - fields may not exist yet");
+            }
+        }
         const tokens = await this.generateTokens(user.id, user.phone, user.role);
         return {
             user: this.sanitizeUser(user),

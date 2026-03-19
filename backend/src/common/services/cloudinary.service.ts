@@ -102,6 +102,8 @@ export class CloudinaryService {
           access_mode: "public",
           public_id: filename.replace(/\.[^/.]+$/, ""),
           format: filename.split(".").pop() || "pdf",
+          overwrite: true,
+          invalidate: true,
         },
         (error, result) => {
           if (error) {

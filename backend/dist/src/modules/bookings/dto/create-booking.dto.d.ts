@@ -5,4 +5,5 @@ export declare class CreateBookingDto {
     moveOutDate: string;
     rent?: string;
     deposit?: string;
+    source?: string;
 }

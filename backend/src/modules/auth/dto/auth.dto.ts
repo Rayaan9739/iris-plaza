@@ -40,6 +40,43 @@ export class SignUpDto {
   @IsNotEmpty()
   @MaxLength(50)
   lastName: string;
+
+  // Identity details for TenantProfile
+  @ApiPropertyOptional({ example: "John Smith" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  fatherName?: string;
+
+  @ApiPropertyOptional({ example: "S/O" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  relation?: string;
+
+  @ApiPropertyOptional({ example: "1234 5678 9012" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  aadhaarNumber?: string;
+
+  @ApiPropertyOptional({ example: "Male" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  gender?: string;
+
+  @ApiPropertyOptional({ example: "Bangalore" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  tenantAddress?: string;
+
+  @ApiPropertyOptional({ example: "Manipal University" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  collegeName?: string;
 }
 
 /**

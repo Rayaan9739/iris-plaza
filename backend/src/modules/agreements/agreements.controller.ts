@@ -10,6 +10,8 @@ import {
   HttpStatus,
   Request,
 } from "@nestjs/common";
+import * as https from "https";
+import * as fs from "fs";
 import { Response } from "express";
 import * as path from "path";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
@@ -39,26 +41,33 @@ export class AgreementsController {
   @Get("booking/:bookingId")
   @ApiOperation({ summary: "Get agreement by booking ID" })
   async findByBooking(@Param("bookingId") bookingId: string) {
+    console.log(`[Controller] GET /agreements/booking/${bookingId}`);
     return this.agreementsService.findByBooking(bookingId);
   }
 
   @Post("booking/:bookingId/sign")
   @ApiOperation({ summary: "Sign agreement as tenant" })
-  async signAsTenant(@Param("bookingId") bookingId: string) {
-    return this.agreementsService.signAsTenant(bookingId);
+  async signAsTenant(
+    @Param("bookingId") bookingId: string,
+    @Body() body: { signature?: string },
+  ) {
+    return this.agreementsService.signAsTenant(bookingId, body.signature);
   }
 
   @Post("admin/booking/:bookingId/sign")
   @UseGuards(RolesGuard)
   @Roles("ADMIN")
   @ApiOperation({ summary: "Sign agreement as admin" })
-  async signAsAdmin(@Param("bookingId") bookingId: string) {
-    return this.agreementsService.signAsAdmin(bookingId);
+  async signAsAdmin(
+    @Param("bookingId") bookingId: string,
+    @Body() body: { signature?: string },
+  ) {
+    return this.agreementsService.signAsAdmin(bookingId, body.signature);
   }
 
   @Get("booking/:bookingId/download")
-  @ApiOperation({ summary: "Download agreement PDF" })
-  async downloadPdf(
+  @ApiOperation({ summary: "Download agreement DOCX" })
+  async downloadAgreement(
     @Param("bookingId") bookingId: string,
     @Res() res: Response,
   ) {
@@ -68,13 +77,30 @@ export class AgreementsController {
       return res.status(HttpStatus.NOT_FOUND).json({ message: "Agreement not found" });
     }
     
+    const isCloudinary = agreement.agreementUrl.startsWith("http");
+    
+    // Use application/vnd.openxmlformats-officedocument.wordprocessingml.document for DOCX
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename=agreement_${bookingId}.docx`);
+
+    if (isCloudinary) {
+      https.get(agreement.agreementUrl, (proxyRes) => {
+        proxyRes.pipe(res);
+      }).on("error", (err) => {
+        console.error("Error proxying agreement from Cloudinary:", err);
+        res.status(500).send("Error retrieving file");
+      });
+      return;
+    }
+
     const filePath = agreement.agreementUrl.replace('/uploads/', '');
     const fullPath = path.join(process.cwd(), 'uploads', filePath);
     
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=agreement_${bookingId}.pdf`);
-    
-    return res.sendFile(fullPath);
+    if (fs.existsSync(fullPath)) {
+      return res.sendFile(fullPath);
+    } else {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: "File not found" });
+    }
   }
 
   @Get("view/:bookingId")
@@ -107,20 +133,33 @@ export class AgreementsController {
       }
     }
     
-    const filePath = agreement.agreementUrl.replace('/uploads/', '');
-    const fullPath = path.join(process.cwd(), 'uploads', filePath);
-    
-    // Set headers to prevent caching, downloading, and screenshots
-    res.setHeader('Content-Type', 'application/pdf');
+    const isCloudinary = agreement.agreementUrl.startsWith("http");
+
+    // Set headers for DOCX viewing - browser may download instead of view
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    res.setHeader('Content-Disposition', 'inline'); // View in browser, don't download
+    res.setHeader('Content-Disposition', 'attachment'); // Download instead of trying to view
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY'); // Prevent embedding in iframes (some protection against screenshots)
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Document-Policy', 'no-download'); // Some browsers support this
     
-    return res.sendFile(fullPath);
+    if (isCloudinary) {
+      https.get(agreement.agreementUrl, (proxyRes) => {
+        proxyRes.pipe(res);
+      }).on("error", (err) => {
+        console.error("Error proxying agreement from Cloudinary:", err);
+        res.status(500).send("Error retrieving file");
+      });
+      return;
+    }
+
+    const filePath = agreement.agreementUrl.replace('/uploads/', '');
+    const fullPath = path.join(process.cwd(), 'uploads', filePath);
+    
+    if (fs.existsSync(fullPath)) {
+      return res.sendFile(fullPath);
+    } else {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: "File not found" });
+    }
   }
 }

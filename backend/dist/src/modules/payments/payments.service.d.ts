@@ -2,14 +2,16 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/prisma/prisma.service";
 import { EventEmitterService } from "@/common/services/event-emitter.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
+import { AgreementsService } from "@/modules/agreements/agreements.service";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { OcrService } from "@/common/services/ocr.service";
 export declare class PaymentsService {
     private prisma;
     private eventEmitter;
     private notificationsService;
+    private agreementsService;
     private ocrService;
-    constructor(prisma: PrismaService, eventEmitter: EventEmitterService, notificationsService: NotificationsService, ocrService: OcrService);
+    constructor(prisma: PrismaService, eventEmitter: EventEmitterService, notificationsService: NotificationsService, agreementsService: AgreementsService, ocrService: OcrService);
     private roomSafeSelect;
     private monthKey;
     private parseMonthKey;

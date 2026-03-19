@@ -5,6 +5,7 @@ export const DASHBOARD_UPDATE_EVENT = "tenant:dataUpdated";
 export const PAYMENT_UPDATED_EVENT = "payment:updated";
 export const BOOKING_UPDATED_EVENT = "booking:updated";
 export const BOOKING_EXPIRED_EVENT = "booking:expired";
+export const ROOM_UPDATED_EVENT = "room:updated";
 
 @Injectable()
 export class EventEmitterService {
@@ -64,6 +65,17 @@ export class EventEmitterService {
     this.eventEmitter.emit(BOOKING_EXPIRED_EVENT, {
       userId,
       bookingId,
+      timestamp: new Date(),
+      data,
+    });
+  }
+
+  /**
+   * Emit room updated event - used when room status changes (e.g., after booking approval)
+   */
+  emitRoomUpdated(roomId: string, data?: any) {
+    this.eventEmitter.emit(ROOM_UPDATED_EVENT, {
+      roomId,
       timestamp: new Date(),
       data,
     });

@@ -45,7 +45,11 @@ export class CreateRoomDto {
   @ApiProperty({
     enum: RoomType,
   })
-  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }) => {
+    if (!value) return value;
+    // Normalize: trim, replace spaces with underscores, uppercase
+    return String(value).trim().replace(/\s+/g, "_").toUpperCase();
+  })
   @IsEnum(RoomType, {
     message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
   })
@@ -72,6 +76,19 @@ export class CreateRoomDto {
   media?: Array<{ type: string; url: string }>;
 
   @ApiPropertyOptional({ example: ["No smoking", "No pets"] })
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -102,6 +119,19 @@ export class CreateRoomDto {
   deposit: number;
 
   @ApiPropertyOptional({ example: ["WiFi", "AC"] })
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -130,7 +160,11 @@ export class UpdateRoomDto {
 
   @ApiPropertyOptional({ enum: RoomType })
   @IsOptional()
-  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }) => {
+    if (!value) return value;
+    // Normalize: trim, replace spaces with underscores, uppercase
+    return String(value).trim().replace(/\s+/g, "_").toUpperCase();
+  })
   @IsEnum(RoomType, {
     message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
   })
@@ -157,6 +191,19 @@ export class UpdateRoomDto {
   media?: Array<{ type: string; url: string }>;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -191,6 +238,19 @@ export class UpdateRoomDto {
   deposit?: number;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

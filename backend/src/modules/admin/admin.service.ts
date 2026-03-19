@@ -65,7 +65,7 @@ export class AdminService {
         where: { deletedAt: null, status: "AVAILABLE", isAvailable: true },
       }),
       this.prisma.room.count({
-        where: { deletedAt: null, status: "OCCUPIED", isAvailable: false },
+        where: { deletedAt: null, isAvailable: false },
       }),
       // Count only tenants with active bookings (APPROVED or APPROVED_PENDING_PAYMENT)
       this.prisma.booking.count({
@@ -291,6 +291,8 @@ export class AdminService {
         data: {
           status: "AVAILABLE",
           isAvailable: true,
+          occupiedFrom: null,
+          occupiedUntil: null,
         },
       });
 
@@ -595,7 +597,7 @@ export class AdminService {
     const [totalRooms, occupiedRooms] = await Promise.all([
       this.prisma.room.count({ where: { deletedAt: null } }),
       this.prisma.room.count({
-        where: { deletedAt: null, status: "OCCUPIED", isAvailable: false },
+        where: { deletedAt: null, isAvailable: false },
       }),
     ]);
 

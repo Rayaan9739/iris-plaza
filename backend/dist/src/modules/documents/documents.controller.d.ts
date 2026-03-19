@@ -1,3 +1,4 @@
+import { Response } from "express";
 import { DocumentsService } from "./documents.service";
 import { CloudinaryService } from "@/common/services/cloudinary.service";
 export declare class DocumentsController {
@@ -78,6 +79,7 @@ export declare class DocumentsController {
         updatedAt: Date;
         deletedAt: Date | null;
     })[]>;
+    viewDocument(id: string, req: any, res: Response): Promise<void>;
     findOne(id: string): Promise<{
         booking: {
             id: string;
