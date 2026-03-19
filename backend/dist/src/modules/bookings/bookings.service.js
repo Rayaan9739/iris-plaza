@@ -12,6 +12,7 @@ var BookingsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingsService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const library_1 = require("@prisma/client/runtime/library");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const notifications_service_1 = require("../notifications/notifications.service");
@@ -63,6 +64,29 @@ let BookingsService = BookingsService_1 = class BookingsService {
             throw new common_1.BadRequestException(`Invalid ${fieldName}`);
         }
         return this.toStartOfUtcDay(parsed);
+    }
+    normalizeBookingSource(bookingSource, source) {
+        const rawSource = String(bookingSource ?? source ?? client_1.BookingSource.WALK_IN)
+            .trim()
+            .toUpperCase()
+            .replace(/[\s-]+/g, "_");
+        if (rawSource === client_1.BookingSource.BROKER) {
+            return client_1.BookingSource.BROKER;
+        }
+        if (rawSource === client_1.BookingSource.WALK_IN || rawSource === "WALKIN") {
+            return client_1.BookingSource.WALK_IN;
+        }
+        throw new common_1.BadRequestException("bookingSource must be either WALK_IN or BROKER");
+    }
+    normalizeBrokerName(bookingSource, brokerName) {
+        const normalizedBrokerName = typeof brokerName === "string" ? brokerName.trim() : "";
+        if (bookingSource === client_1.BookingSource.BROKER) {
+            if (!normalizedBrokerName) {
+                throw new common_1.BadRequestException("Broker name is required when booking source is BROKER");
+            }
+            return normalizedBrokerName;
+        }
+        return null;
     }
     monthKey(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -163,7 +187,9 @@ let BookingsService = BookingsService_1 = class BookingsService {
     }
     async create(input) {
         console.log("BOOKING SERVICE CREATE INPUT:", input);
-        const { userId, roomId, moveInDate, moveOutDate, source, } = input;
+        const { userId, roomId, moveInDate, moveOutDate, source, bookingSource, brokerName, } = input;
+        const normalizedSource = this.normalizeBookingSource(bookingSource, source);
+        const normalizedBrokerName = this.normalizeBrokerName(normalizedSource, brokerName);
         if (!userId || !roomId || !moveInDate) {
             console.error("BOOKING VALIDATION FAILED:", { userId, roomId, moveInDate });
             throw new common_1.BadRequestException("userId, roomId and moveInDate are required");
@@ -269,6 +295,8 @@ let BookingsService = BookingsService_1 = class BookingsService {
                     moveOutDate: normalizedMoveOutDate,
                     checkoutDate: normalizedMoveOutDate,
                     status: "PENDING_APPROVAL",
+                    bookingSource: normalizedSource,
+                    brokerName: normalizedBrokerName,
                     expiresAt: null,
                     statusHistory: {
                         create: {
@@ -562,9 +590,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
         return this.updateStatus(id, "APPROVED", "Booking request approved by admin.");
     }
     async reject(id) {
-        const booking = await this.findOne(id);
-        const updated = await this.updateStatus(id, "REJECTED", "Booking rejected by admin");
-        return updated;
+        return this.updateStatus(id, "REJECTED", "Booking rejected by admin");
     }
     async checkExpiredCheckouts() {
         const expiredBookings = await this.prisma.booking.findMany({
@@ -576,7 +602,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
         const results = [];
         for (const booking of expiredBookings) {
             try {
-                const updated = await this.updateStatus(booking.id, "EXPIRED", "Booking completed at move-out date", "system");
+                await this.updateStatus(booking.id, "EXPIRED", "Booking completed at move-out date", "system");
                 this.eventEmitter.emitBookingExpired(booking.userId, booking.id, {
                     roomId: booking.roomId,
                     checkoutDate: booking.checkoutDate,

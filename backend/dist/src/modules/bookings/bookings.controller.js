@@ -65,6 +65,8 @@ let BookingsController = class BookingsController {
             moveInDate: body.moveInDate,
             moveOutDate: body.moveOutDate,
             source: body.source,
+            bookingSource: body.bookingSource,
+            brokerName: body.brokerName,
         });
     }
     async cancel(id) {

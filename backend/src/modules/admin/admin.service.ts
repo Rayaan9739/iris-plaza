@@ -1,8 +1,8 @@
 import {
-  BadRequestException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { BookingSource, BookingStatus } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
 import { EventEmitterService } from "@/common/services/event-emitter.service";
@@ -10,6 +10,11 @@ import { PaymentsService } from "@/modules/payments/payments.service";
 
 @Injectable()
 export class AdminService {
+  private readonly activeTenantBookingStatuses: BookingStatus[] = [
+    BookingStatus.APPROVED,
+    BookingStatus.APPROVED_PENDING_PAYMENT,
+  ];
+
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
@@ -46,6 +51,27 @@ export class AdminService {
     return "PENDING";
   }
 
+  private normalizeBookingSource(
+    bookingSource?: BookingSource | null,
+  ): BookingSource {
+    return bookingSource === BookingSource.BROKER
+      ? BookingSource.BROKER
+      : BookingSource.WALK_IN;
+  }
+
+  private normalizeBrokerName(
+    bookingSource?: BookingSource | null,
+    brokerName?: string | null,
+  ): string | null {
+    if (this.normalizeBookingSource(bookingSource) !== BookingSource.BROKER) {
+      return null;
+    }
+
+    const normalizedBrokerName =
+      typeof brokerName === "string" ? brokerName.trim() : "";
+    return normalizedBrokerName || null;
+  }
+
   async getDashboardStats() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -69,7 +95,7 @@ export class AdminService {
       }),
       // Count only tenants with active bookings (APPROVED or APPROVED_PENDING_PAYMENT)
       this.prisma.booking.count({
-        where: { status: { in: ["APPROVED", "APPROVED_PENDING_PAYMENT"] as any } },
+        where: { status: { in: this.activeTenantBookingStatuses } },
       }),
       this.prisma.booking.count({
         where: { status: { in: ["PENDING_APPROVAL", "VERIFICATION_PENDING"] } },
@@ -154,7 +180,7 @@ export class AdminService {
   }
 
   async getAdminBookings() {
-    return this.prisma.booking.findMany({
+    const bookings = await this.prisma.booking.findMany({
       include: {
         user: true,
         room: { select: this.roomSafeSelect },
@@ -163,11 +189,20 @@ export class AdminService {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    return bookings.map((booking) => {
+      const bookingSource = this.normalizeBookingSource(booking.bookingSource);
+      return {
+        ...booking,
+        bookingSource,
+        brokerName: this.normalizeBrokerName(bookingSource, booking.brokerName),
+      };
+    });
   }
 
   async getAllTenants() {
     const approvedBookings = await this.prisma.booking.findMany({
-      where: { status: "APPROVED" },
+      where: { status: { in: this.activeTenantBookingStatuses } },
       include: { user: true, room: { select: this.roomSafeSelect } },
       orderBy: { createdAt: "desc" },
     });
@@ -195,11 +230,18 @@ export class AdminService {
     const booking = await this.prisma.booking.findFirst({
       where: {
         userId: tenantId,
-        status: {
-          in: ["APPROVED", "APPROVED_PENDING_PAYMENT"]
-        }
+        status: { in: this.activeTenantBookingStatuses },
       },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        moveInDate: true,
+        moveOutDate: true,
+        bookingSource: true,
+        brokerName: true,
         user: true,
         room: { select: this.roomSafeSelect },
         agreement: true
@@ -216,6 +258,11 @@ export class AdminService {
       where: { userId: tenantId },
       orderBy: { uploadedAt: "desc" },
     });
+    const bookingSource = this.normalizeBookingSource(booking.bookingSource);
+    const brokerName = this.normalizeBrokerName(
+      bookingSource,
+      booking.brokerName,
+    );
 
     return {
       id: booking.user.id,
@@ -233,6 +280,8 @@ export class AdminService {
         moveOutDate: booking.moveOutDate,
         startDate: booking.startDate,
         endDate: booking.endDate,
+        bookingSource,
+        brokerName,
       },
       room: {
         id: booking.room.id,
@@ -262,7 +311,7 @@ export class AdminService {
     const booking = await this.prisma.booking.findFirst({
       where: {
         userId,
-        status: "APPROVED",
+        status: { in: this.activeTenantBookingStatuses },
       },
       include: { room: { select: this.roomSafeSelect }, user: true },
       orderBy: { createdAt: "desc" },
@@ -412,7 +461,7 @@ export class AdminService {
     }
   }
 
-  async approveMaintenanceRequest(id: string, amountToPayNow?: number) {
+  async approveMaintenanceRequest(id: string, _amountToPayNow?: number) {
     try {
       const ticket = await this.prisma.maintenanceTicket.findUnique({
         where: { id },

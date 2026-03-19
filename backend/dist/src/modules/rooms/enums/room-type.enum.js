@@ -5,6 +5,6 @@ var RoomType;
 (function (RoomType) {
     RoomType["ONE_BHK"] = "ONE_BHK";
     RoomType["TWO_BHK"] = "TWO_BHK";
-    RoomType["PENT_HOUSE"] = "PENT_HOUSE";
+    RoomType["PENTHOUSE"] = "PENTHOUSE";
 })(RoomType || (exports.RoomType = RoomType = {}));
 //# sourceMappingURL=room-type.enum.js.map

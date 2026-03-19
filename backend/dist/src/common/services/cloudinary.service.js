@@ -26,10 +26,12 @@ let CloudinaryService = CloudinaryService_1 = class CloudinaryService {
         });
     }
     async uploadImage(file, folder = "iris-plaza") {
+        const timeout = Math.max(120000, Math.ceil(file.size / (10 * 1024 * 1024)) * 60000);
         return new Promise((resolve, reject) => {
             const uploadStream = cloudinary_1.v2.uploader.upload_stream({
                 folder,
                 resource_type: "auto",
+                timeout: timeout,
             }, (error, result) => {
                 if (error) {
                     this.logger.error(`Cloudinary upload error: ${error.message}`, error.stack);
@@ -43,6 +45,7 @@ let CloudinaryService = CloudinaryService_1 = class CloudinaryService {
         });
     }
     async uploadRaw(file, folder = "iris-plaza/agreements") {
+        const timeout = Math.max(120000, Math.ceil(file.size / (10 * 1024 * 1024)) * 60000);
         return new Promise((resolve, reject) => {
             const uploadStream = cloudinary_1.v2.uploader.upload_stream({
                 folder,
@@ -50,6 +53,7 @@ let CloudinaryService = CloudinaryService_1 = class CloudinaryService {
                 type: "upload",
                 access_mode: "public",
                 format: file.originalname.split(".").pop() || "pdf",
+                timeout: timeout,
             }, (error, result) => {
                 if (error) {
                     this.logger.error(`Cloudinary raw upload error: ${error.message}`, error.stack);

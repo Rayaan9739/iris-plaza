@@ -1,8 +1,10 @@
 import { PrismaService } from "../../prisma/prisma.service";
 import { CancellationRequestDto } from "./dto/create-cancellation-request.dto";
+import { NotificationsService } from "../notifications/notifications.service";
 export declare class CancellationRequestService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private notificationsService;
+    constructor(prisma: PrismaService, notificationsService: NotificationsService);
     create(dto: CancellationRequestDto, tenantId: string): Promise<{
         id: string;
         bookingId: string;
@@ -72,6 +74,8 @@ export declare class CancellationRequestService {
             bookingFeePaid: boolean;
             expiresAt: Date | null;
             deletedAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
         };
         tenant: {
             id: string;
@@ -160,6 +164,8 @@ export declare class CancellationRequestService {
             bookingFeePaid: boolean;
             expiresAt: Date | null;
             deletedAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
         };
     } & {
         id: string;
@@ -230,6 +236,8 @@ export declare class CancellationRequestService {
             bookingFeePaid: boolean;
             expiresAt: Date | null;
             deletedAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
         };
     } & {
         id: string;
@@ -282,6 +290,8 @@ export declare class CancellationRequestService {
             bookingFeePaid: boolean;
             expiresAt: Date | null;
             deletedAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
         };
     } & {
         id: string;
@@ -335,6 +345,8 @@ export declare class CancellationRequestService {
             bookingFeePaid: boolean;
             expiresAt: Date | null;
             deletedAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
         };
     } & {
         id: string;

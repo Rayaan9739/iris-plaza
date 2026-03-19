@@ -14,6 +14,21 @@ import { Type, Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { RoomType } from "../enums/room-type.enum";
 
+const LEGACY_ROOM_TYPE_MAP: Record<string, RoomType> = {
+  STUDIO: RoomType.ONE_BHK,
+  SINGLE: RoomType.ONE_BHK,
+  DOUBLE: RoomType.ONE_BHK,
+  THREE_BHK: RoomType.TWO_BHK,
+  SUITE: RoomType.PENTHOUSE,
+  PENT_HOUSE: RoomType.PENTHOUSE,
+};
+
+function normalizeRoomTypeValue(value: unknown) {
+  if (!value) return value;
+  const normalized = String(value).trim().replace(/\s+/g, "_").toUpperCase();
+  return LEGACY_ROOM_TYPE_MAP[normalized] ?? normalized;
+}
+
 export class RoomImageDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -36,6 +51,19 @@ export class RoomImageDto {
   isPrimary?: boolean;
 }
 
+export class RoomMediaDto {
+  @ApiProperty({ enum: ["image", "video", "unknown"] })
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(["image", "video", "unknown"])
+  type: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  url: string;
+}
+
 export class CreateRoomDto {
   @ApiProperty({ example: "Room 101" })
   @IsString()
@@ -45,13 +73,9 @@ export class CreateRoomDto {
   @ApiProperty({
     enum: RoomType,
   })
-  @Transform(({ value }) => {
-    if (!value) return value;
-    // Normalize: trim, replace spaces with underscores, uppercase
-    return String(value).trim().replace(/\s+/g, "_").toUpperCase();
-  })
+  @Transform(({ value }) => normalizeRoomTypeValue(value))
   @IsEnum(RoomType, {
-    message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
+    message: "Room type must be ONE_BHK, TWO_BHK, or PENTHOUSE",
   })
   type: RoomType;
 
@@ -72,8 +96,8 @@ export class CreateRoomDto {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => Object)
-  media?: Array<{ type: string; url: string }>;
+  @Type(() => RoomMediaDto)
+  media?: RoomMediaDto[];
 
   @ApiPropertyOptional({ example: ["No smoking", "No pets"] })
   @Transform(({ value }) => {
@@ -160,13 +184,9 @@ export class UpdateRoomDto {
 
   @ApiPropertyOptional({ enum: RoomType })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return value;
-    // Normalize: trim, replace spaces with underscores, uppercase
-    return String(value).trim().replace(/\s+/g, "_").toUpperCase();
-  })
+  @Transform(({ value }) => normalizeRoomTypeValue(value))
   @IsEnum(RoomType, {
-    message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
+    message: "Room type must be ONE_BHK, TWO_BHK, or PENTHOUSE",
   })
   type?: RoomType;
 
@@ -187,8 +207,8 @@ export class UpdateRoomDto {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => Object)
-  media?: Array<{ type: string; url: string }>;
+  @Type(() => RoomMediaDto)
+  media?: RoomMediaDto[];
 
   @ApiPropertyOptional()
   @Transform(({ value }) => {

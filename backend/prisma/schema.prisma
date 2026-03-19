@@ -176,6 +176,8 @@ model Booking {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   deletedAt           DateTime?
+  bookingSource       BookingSource          @default(WALK_IN)
+  brokerName          String?
   agreement           Agreement?
   statusHistory       BookingStatusHistory[]
   room                Room                   @relation(fields: [roomId], references: [id])
@@ -428,12 +430,7 @@ enum AccountStatus {
 enum RoomType {
   ONE_BHK
   TWO_BHK
-  PENT_HOUSE
-  SINGLE
-  DOUBLE
-  STUDIO
-  SUITE
-  THREE_BHK
+  PENTHOUSE
 }
 
 enum RoomStatus {
@@ -441,6 +438,11 @@ enum RoomStatus {
   RESERVED
   OCCUPIED
   MAINTENANCE
+}
+
+enum BookingSource {
+  WALK_IN
+  BROKER
 }
 
 enum BookingStatus {

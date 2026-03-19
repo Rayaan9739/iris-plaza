@@ -33,11 +33,15 @@ export class CloudinaryService {
     file: Express.Multer.File,
     folder: string = "iris-plaza",
   ): Promise<CloudinaryUploadResult> {
+    // Calculate timeout based on file size (1 minute per 10MB, minimum 2 minutes)
+    const timeout = Math.max(120000, Math.ceil(file.size / (10 * 1024 * 1024)) * 60000);
+    
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder,
           resource_type: "auto",
+          timeout: timeout,
         },
         (error, result) => {
           if (error) {
@@ -61,6 +65,9 @@ export class CloudinaryService {
     file: Express.Multer.File,
     folder: string = "iris-plaza/agreements",
   ): Promise<CloudinaryUploadResult> {
+    // Calculate timeout based on file size (1 minute per 10MB, minimum 2 minutes)
+    const timeout = Math.max(120000, Math.ceil(file.size / (10 * 1024 * 1024)) * 60000);
+    
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -69,6 +76,7 @@ export class CloudinaryService {
           type: "upload",
           access_mode: "public",
           format: file.originalname.split(".").pop() || "pdf",
+          timeout: timeout,
         },
         (error, result) => {
           if (error) {

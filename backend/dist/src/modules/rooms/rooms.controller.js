@@ -27,8 +27,8 @@ let RoomsController = class RoomsController {
     async findAll() {
         return this.roomsService.findAll();
     }
-    async getAvailableRooms() {
-        return this.roomsService.getAvailableRooms();
+    async getAvailableRooms(month) {
+        return this.roomsService.getAvailableRooms(month);
     }
     async findOccupiedRooms() {
         return this.roomsService.findOccupiedRooms();
@@ -99,8 +99,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)("available"),
     (0, swagger_1.ApiOperation)({ summary: "Get available rooms" }),
+    __param(0, (0, common_1.Query)("month")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], RoomsController.prototype, "getAvailableRooms", null);
 __decorate([

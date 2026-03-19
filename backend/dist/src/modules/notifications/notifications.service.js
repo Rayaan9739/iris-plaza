@@ -45,6 +45,7 @@ let NotificationsService = class NotificationsService {
                 type: data.type,
                 title: data.title,
                 message: data.message,
+                metadata: data.metadata,
                 userId,
             },
         });
@@ -55,6 +56,7 @@ let NotificationsService = class NotificationsService {
                 type: data.type,
                 title: data.title,
                 message: data.message,
+                metadata: data.metadata,
                 userId,
             },
         });
@@ -65,6 +67,7 @@ let NotificationsService = class NotificationsService {
             type: data.type,
             title: data.title,
             message: data.message,
+            metadata: data.metadata,
         }));
         return this.prisma.notification.createMany({ data: notifications });
     }

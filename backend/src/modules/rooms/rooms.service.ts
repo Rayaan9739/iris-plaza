@@ -3,8 +3,18 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { CreateRoomDto, UpdateRoomDto } from "./dto/room.dto";
+import { RoomType } from "./enums/room-type.enum";
 
 type RuleRow = { room_id: string; rule: string };
+
+const LEGACY_ROOM_TYPE_MAP: Record<string, RoomType> = {
+  STUDIO: RoomType.ONE_BHK,
+  SINGLE: RoomType.ONE_BHK,
+  DOUBLE: RoomType.ONE_BHK,
+  THREE_BHK: RoomType.TWO_BHK,
+  SUITE: RoomType.PENTHOUSE,
+  PENT_HOUSE: RoomType.PENTHOUSE,
+};
 
 @Injectable()
 export class RoomsService {
@@ -15,6 +25,44 @@ export class RoomsService {
     return new Date(
       Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
     );
+  }
+
+  private normalizeRoomType(input: unknown): RoomType {
+    const raw = String(input ?? "").trim();
+    const normalized = raw.replace(/\s+/g, "_").toUpperCase();
+    const mapped = LEGACY_ROOM_TYPE_MAP[normalized] ?? normalized;
+
+    if (
+      mapped === RoomType.ONE_BHK ||
+      mapped === RoomType.TWO_BHK ||
+      mapped === RoomType.PENTHOUSE
+    ) {
+      return mapped;
+    }
+
+    throw new BadRequestException(
+      "Room type must be ONE_BHK, TWO_BHK, or PENTHOUSE",
+    );
+  }
+
+  private parseSelectedMonthStart(month?: string) {
+    if (!month) {
+      return null;
+    }
+
+    const normalized = String(month).trim();
+    const match = normalized.match(/^(\d{4})-(\d{2})$/);
+    if (!match) {
+      throw new BadRequestException("month must be in YYYY-MM format");
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+      throw new BadRequestException("month must be in YYYY-MM format");
+    }
+
+    return new Date(Date.UTC(year, monthIndex, 1));
   }
 
   private roomSafeSelect = {
@@ -340,10 +388,11 @@ export class RoomsService {
       videoUrl,
       ...roomData
     } = payload;
+    const normalizedType = this.normalizeRoomType(roomData.type);
 
     const data: any = {
       ...roomData,
-      type: roomData.type as any,
+      type: normalizedType as any,
       status: "AVAILABLE" as any,
       isAvailable: true,
       amenities: this.buildAmenityCreateInput(amenities),
@@ -430,9 +479,12 @@ export class RoomsService {
 
     const data: any = {
       ...roomData,
-      type: roomData.type as any,
       amenities: this.buildAmenityCreateInput(amenities),
     };
+
+    if (roomData.type !== undefined) {
+      data.type = this.normalizeRoomType(roomData.type) as any;
+    }
 
     if (media) {
       await this.prisma.roomImage.deleteMany({ where: { roomId: id } });
@@ -549,22 +601,79 @@ export class RoomsService {
     });
   }
 
-  async getAvailableRooms() {
+  async getAvailableRooms(selectedMonth?: string) {
+    const selectedMonthStart = this.parseSelectedMonthStart(selectedMonth);
+    const selectedMonthEndExclusive = selectedMonthStart
+      ? new Date(
+          Date.UTC(
+            selectedMonthStart.getUTCFullYear(),
+            selectedMonthStart.getUTCMonth() + 1,
+            1,
+          ),
+        )
+      : null;
+
+    // Get ALL rooms (only exclude deleted)
     const rooms = await this.prisma.room.findMany({
       where: {
         deletedAt: null,
-        status: "AVAILABLE" as any,
-        isAvailable: true,
       },
       select: this.roomSafeSelect,
     });
 
     const rulesMap = await this.getRulesByRoomIds(rooms.map((room) => room.id));
 
-    return rooms.map((room) => ({
-      ...room,
-      rules: rulesMap.get(room.id) ?? [],
-    }));
+    const now = new Date();
+    const mappedRooms = rooms.map((room) => {
+      // Compute availability status
+      let availabilityStatus:
+        | "AVAILABLE"
+        | "RESERVED"
+        | "OCCUPIED"
+        | "MAINTENANCE" = String(room.status || "AVAILABLE").toUpperCase() as
+        | "AVAILABLE"
+        | "RESERVED"
+        | "OCCUPIED"
+        | "MAINTENANCE";
+      let availableFrom: string | null = null;
+
+      const occupiedUntilDate = room.occupiedUntil
+        ? new Date(room.occupiedUntil)
+        : null;
+
+      if (
+        occupiedUntilDate &&
+        !Number.isNaN(occupiedUntilDate.getTime()) &&
+        occupiedUntilDate > now
+      ) {
+        availabilityStatus = "OCCUPIED";
+        availableFrom = occupiedUntilDate.toISOString();
+      }
+
+      return {
+        ...room,
+        availabilityStatus,
+        availableFrom,
+        // A room is considered selectable for a month if it becomes
+        // available on/before that month's end.
+        availableBy: occupiedUntilDate && occupiedUntilDate > now
+          ? occupiedUntilDate.toISOString()
+          : now.toISOString(),
+        rules: rulesMap.get(room.id) ?? [],
+      };
+    });
+
+    if (!selectedMonthEndExclusive) {
+      return mappedRooms.map(({ availableBy: _availableBy, ...room }) => room);
+    }
+
+    return mappedRooms
+      .filter((room) => {
+        const availableByDate = new Date(room.availableBy);
+        if (Number.isNaN(availableByDate.getTime())) return false;
+        return availableByDate < selectedMonthEndExclusive;
+      })
+      .map(({ availableBy: _availableBy, ...room }) => room);
   }
 
   async findOccupiedRooms() {

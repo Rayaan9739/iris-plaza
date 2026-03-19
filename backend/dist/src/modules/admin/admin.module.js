@@ -8,6 +8,8 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminModule = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_1 = require("multer");
 const admin_service_1 = require("./admin.service");
 const admin_controller_1 = require("./admin.controller");
 const rooms_module_1 = require("../rooms/rooms.module");
@@ -21,7 +23,18 @@ let AdminModule = class AdminModule {
 exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
-        imports: [rooms_module_1.RoomsModule, bookings_module_1.BookingsModule, notifications_module_1.NotificationsModule, payments_module_1.PaymentsModule],
+        imports: [
+            platform_express_1.MulterModule.register({
+                storage: (0, multer_1.memoryStorage)(),
+                limits: {
+                    fileSize: 100 * 1024 * 1024,
+                },
+            }),
+            rooms_module_1.RoomsModule,
+            bookings_module_1.BookingsModule,
+            notifications_module_1.NotificationsModule,
+            payments_module_1.PaymentsModule
+        ],
         controllers: [admin_controller_1.AdminController],
         providers: [admin_service_1.AdminService, event_emitter_service_1.EventEmitterService, cloudinary_service_1.CloudinaryService],
         exports: [admin_service_1.AdminService],

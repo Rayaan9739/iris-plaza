@@ -56,6 +56,8 @@ export declare class CancellationRequestController {
                 bookingFeePaid: boolean;
                 expiresAt: Date | null;
                 deletedAt: Date | null;
+                bookingSource: import(".prisma/client").$Enums.BookingSource;
+                brokerName: string | null;
             };
         } & {
             id: string;
@@ -129,6 +131,8 @@ export declare class CancellationRequestController {
                 bookingFeePaid: boolean;
                 expiresAt: Date | null;
                 deletedAt: Date | null;
+                bookingSource: import(".prisma/client").$Enums.BookingSource;
+                brokerName: string | null;
             };
             tenant: {
                 id: string;
@@ -221,6 +225,8 @@ export declare class CancellationRequestController {
                 bookingFeePaid: boolean;
                 expiresAt: Date | null;
                 deletedAt: Date | null;
+                bookingSource: import(".prisma/client").$Enums.BookingSource;
+                brokerName: string | null;
             };
         } & {
             id: string;
@@ -297,6 +303,8 @@ export declare class CancellationRequestController {
                 bookingFeePaid: boolean;
                 expiresAt: Date | null;
                 deletedAt: Date | null;
+                bookingSource: import(".prisma/client").$Enums.BookingSource;
+                brokerName: string | null;
             };
         } & {
             id: string;

@@ -15,6 +15,15 @@ const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const room_type_enum_1 = require("./enums/room-type.enum");
+const LEGACY_ROOM_TYPE_MAP = {
+    STUDIO: room_type_enum_1.RoomType.ONE_BHK,
+    SINGLE: room_type_enum_1.RoomType.ONE_BHK,
+    DOUBLE: room_type_enum_1.RoomType.ONE_BHK,
+    THREE_BHK: room_type_enum_1.RoomType.TWO_BHK,
+    SUITE: room_type_enum_1.RoomType.PENTHOUSE,
+    PENT_HOUSE: room_type_enum_1.RoomType.PENTHOUSE,
+};
 let RoomsService = RoomsService_1 = class RoomsService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -43,6 +52,33 @@ let RoomsService = RoomsService_1 = class RoomsService {
     }
     toStartOfUtcDay(date) {
         return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    }
+    normalizeRoomType(input) {
+        const raw = String(input ?? "").trim();
+        const normalized = raw.replace(/\s+/g, "_").toUpperCase();
+        const mapped = LEGACY_ROOM_TYPE_MAP[normalized] ?? normalized;
+        if (mapped === room_type_enum_1.RoomType.ONE_BHK ||
+            mapped === room_type_enum_1.RoomType.TWO_BHK ||
+            mapped === room_type_enum_1.RoomType.PENTHOUSE) {
+            return mapped;
+        }
+        throw new common_1.BadRequestException("Room type must be ONE_BHK, TWO_BHK, or PENTHOUSE");
+    }
+    parseSelectedMonthStart(month) {
+        if (!month) {
+            return null;
+        }
+        const normalized = String(month).trim();
+        const match = normalized.match(/^(\d{4})-(\d{2})$/);
+        if (!match) {
+            throw new common_1.BadRequestException("month must be in YYYY-MM format");
+        }
+        const year = Number(match[1]);
+        const monthIndex = Number(match[2]) - 1;
+        if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+            throw new common_1.BadRequestException("month must be in YYYY-MM format");
+        }
+        return new Date(Date.UTC(year, monthIndex, 1));
     }
     mapMediaToImageRows(media) {
         if (!media?.length) {
@@ -262,9 +298,10 @@ let RoomsService = RoomsService_1 = class RoomsService {
         const payload = { ...createRoomDto };
         delete payload.existingMedia;
         const { amenities, rules, status: _status, media, images, videoUrl, ...roomData } = payload;
+        const normalizedType = this.normalizeRoomType(roomData.type);
         const data = {
             ...roomData,
-            type: roomData.type,
+            type: normalizedType,
             status: "AVAILABLE",
             isAvailable: true,
             amenities: this.buildAmenityCreateInput(amenities),
@@ -336,9 +373,11 @@ let RoomsService = RoomsService_1 = class RoomsService {
         }
         const data = {
             ...roomData,
-            type: roomData.type,
             amenities: this.buildAmenityCreateInput(amenities),
         };
+        if (roomData.type !== undefined) {
+            data.type = this.normalizeRoomType(roomData.type);
+        }
         if (media) {
             await this.prisma.roomImage.deleteMany({ where: { roomId: id } });
             const mediaImageRows = this.mapMediaToImageRows(media);
@@ -438,20 +477,52 @@ let RoomsService = RoomsService_1 = class RoomsService {
             where: { id },
         });
     }
-    async getAvailableRooms() {
+    async getAvailableRooms(selectedMonth) {
+        const selectedMonthStart = this.parseSelectedMonthStart(selectedMonth);
+        const selectedMonthEndExclusive = selectedMonthStart
+            ? new Date(Date.UTC(selectedMonthStart.getUTCFullYear(), selectedMonthStart.getUTCMonth() + 1, 1))
+            : null;
         const rooms = await this.prisma.room.findMany({
             where: {
                 deletedAt: null,
-                status: "AVAILABLE",
-                isAvailable: true,
             },
             select: this.roomSafeSelect,
         });
         const rulesMap = await this.getRulesByRoomIds(rooms.map((room) => room.id));
-        return rooms.map((room) => ({
-            ...room,
-            rules: rulesMap.get(room.id) ?? [],
-        }));
+        const now = new Date();
+        const mappedRooms = rooms.map((room) => {
+            let availabilityStatus = String(room.status || "AVAILABLE").toUpperCase();
+            let availableFrom = null;
+            const occupiedUntilDate = room.occupiedUntil
+                ? new Date(room.occupiedUntil)
+                : null;
+            if (occupiedUntilDate &&
+                !Number.isNaN(occupiedUntilDate.getTime()) &&
+                occupiedUntilDate > now) {
+                availabilityStatus = "OCCUPIED";
+                availableFrom = occupiedUntilDate.toISOString();
+            }
+            return {
+                ...room,
+                availabilityStatus,
+                availableFrom,
+                availableBy: occupiedUntilDate && occupiedUntilDate > now
+                    ? occupiedUntilDate.toISOString()
+                    : now.toISOString(),
+                rules: rulesMap.get(room.id) ?? [],
+            };
+        });
+        if (!selectedMonthEndExclusive) {
+            return mappedRooms.map(({ availableBy: _availableBy, ...room }) => room);
+        }
+        return mappedRooms
+            .filter((room) => {
+            const availableByDate = new Date(room.availableBy);
+            if (Number.isNaN(availableByDate.getTime()))
+                return false;
+            return availableByDate < selectedMonthEndExclusive;
+        })
+            .map(({ availableBy: _availableBy, ...room }) => room);
     }
     async findOccupiedRooms() {
         const rooms = await this.prisma.room.findMany({

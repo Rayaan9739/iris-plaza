@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
@@ -28,8 +29,8 @@ export class RoomsController {
 
   @Get("available")
   @ApiOperation({ summary: "Get available rooms" })
-  async getAvailableRooms() {
-    return this.roomsService.getAvailableRooms();
+  async getAvailableRooms(@Query("month") month?: string) {
+    return this.roomsService.getAvailableRooms(month);
   }
 
   @Get("occupied")

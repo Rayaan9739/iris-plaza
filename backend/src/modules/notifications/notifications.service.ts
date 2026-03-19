@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
@@ -37,12 +37,14 @@ export class NotificationsService {
     type: NotificationType;
     title: string;
     message: string;
+    metadata?: Prisma.InputJsonValue;
   }) {
     return this.prisma.notification.create({
       data: {
         type: data.type,
         title: data.title,
         message: data.message,
+        metadata: data.metadata,
         userId,
       },
     });
@@ -52,6 +54,7 @@ export class NotificationsService {
     type: NotificationType;
     title: string;
     message: string;
+    metadata?: Prisma.InputJsonValue;
   }) {
     // Create and mark as sent
     return this.prisma.notification.create({
@@ -59,6 +62,7 @@ export class NotificationsService {
         type: data.type,
         title: data.title,
         message: data.message,
+        metadata: data.metadata,
         userId,
       },
     });
@@ -68,12 +72,14 @@ export class NotificationsService {
     type: NotificationType;
     title: string;
     message: string;
+    metadata?: Prisma.InputJsonValue;
   }) {
     const notifications = userIds.map(userId => ({
       userId,
       type: data.type,
       title: data.title,
       message: data.message,
+      metadata: data.metadata,
     }));
     return this.prisma.notification.createMany({ data: notifications });
   }

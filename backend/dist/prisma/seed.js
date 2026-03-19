@@ -28,7 +28,7 @@ async function main() {
     const rooms = [
         {
             name: "Deluxe Single Room",
-            type: "SINGLE",
+            type: "ONE_BHK",
             rent: 8000,
             deposit: 16000,
             area: 200,
@@ -38,7 +38,7 @@ async function main() {
         },
         {
             name: "Double Occupancy Room",
-            type: "DOUBLE",
+            type: "ONE_BHK",
             rent: 12000,
             deposit: 24000,
             area: 300,
@@ -48,7 +48,7 @@ async function main() {
         },
         {
             name: "Studio Apartment",
-            type: "STUDIO",
+            type: "ONE_BHK",
             rent: 15000,
             deposit: 30000,
             area: 400,

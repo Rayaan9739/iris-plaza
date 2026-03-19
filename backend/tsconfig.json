@@ -19,8 +19,9 @@
     "noFallthroughCasesInSwitch": false,
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "types": ["node", "multer"]
   },
-  "include": ["src/**/*", "prisma/**/*", "templates/**/*"],
+  "include": ["src/**/*", "prisma/**/*", "templates/**/*", "prisma.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

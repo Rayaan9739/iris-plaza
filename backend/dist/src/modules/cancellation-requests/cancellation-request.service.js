@@ -13,13 +13,24 @@ exports.CancellationRequestService = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const notifications_service_1 = require("../notifications/notifications.service");
+const client_1 = require("@prisma/client");
 let CancellationRequestService = class CancellationRequestService {
-    constructor(prisma) {
+    constructor(prisma, notificationsService) {
         this.prisma = prisma;
+        this.notificationsService = notificationsService;
     }
     async create(dto, tenantId) {
         const booking = await this.prisma.booking.findUnique({
             where: { id: dto.bookingId },
+            include: {
+                user: {
+                    select: { firstName: true, lastName: true },
+                },
+                room: {
+                    select: { name: true },
+                },
+            },
         });
         if (!booking) {
             throw new common_1.BadRequestException("Booking not found");
@@ -34,7 +45,7 @@ let CancellationRequestService = class CancellationRequestService {
         if (existingRequest && existingRequest.status === "PENDING") {
             throw new common_1.BadRequestException("A cancellation request is already pending");
         }
-        return this.prisma.cancellationRequest.upsert({
+        const cancellationRequest = await this.prisma.cancellationRequest.upsert({
             where: { bookingId: dto.bookingId },
             create: {
                 bookingId: dto.bookingId,
@@ -52,6 +63,38 @@ let CancellationRequestService = class CancellationRequestService {
                 releaseTime: null,
             },
         });
+        const tenantName = [booking.user?.firstName, booking.user?.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+        const roomName = String(booking.room?.name || "your room");
+        await this.notificationsService.create(tenantId, {
+            type: client_1.NotificationType.SYSTEM,
+            title: "Cancellation Request Submitted",
+            message: "Your cancellation request was submitted and is pending admin approval.",
+            metadata: {
+                path: "/tenant/room",
+                bookingId: dto.bookingId,
+                cancellationRequestId: cancellationRequest.id,
+                event: "CANCELLATION_REQUEST_SUBMITTED",
+            },
+        });
+        const admins = await this.prisma.user.findMany({
+            where: { role: "ADMIN", isActive: true },
+            select: { id: true },
+        });
+        await Promise.all(admins.map((admin) => this.notificationsService.create(admin.id, {
+            type: client_1.NotificationType.SYSTEM,
+            title: "New Cancellation Request",
+            message: `${tenantName || "A tenant"} requested cancellation for ${roomName}.`,
+            metadata: {
+                path: "/admin/cancellation-requests",
+                bookingId: dto.bookingId,
+                cancellationRequestId: cancellationRequest.id,
+                event: "CANCELLATION_REQUEST_PENDING",
+            },
+        })));
+        return cancellationRequest;
     }
     async getPendingRequests() {
         const requests = await this.prisma.cancellationRequest.findMany({
@@ -118,6 +161,17 @@ let CancellationRequestService = class CancellationRequestService {
                         user: true,
                     },
                 },
+            },
+        });
+        await this.notificationsService.create(request.tenantId, {
+            type: client_1.NotificationType.SYSTEM,
+            title: "Cancellation Approved",
+            message: "Your cancellation request has been approved. The room has been released.",
+            metadata: {
+                path: "/tenant/room",
+                bookingId: request.bookingId,
+                cancellationRequestId: requestId,
+                event: "CANCELLATION_REQUEST_APPROVED",
             },
         });
         return updatedRequest;
@@ -231,6 +285,7 @@ __decorate([
 ], CancellationRequestService.prototype, "handleCron", null);
 exports.CancellationRequestService = CancellationRequestService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        notifications_service_1.NotificationsService])
 ], CancellationRequestService);
 //# sourceMappingURL=cancellation-request.service.js.map

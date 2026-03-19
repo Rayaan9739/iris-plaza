@@ -4,7 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { BookingSource } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/prisma/prisma.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
@@ -63,6 +63,49 @@ export class BookingsService {
       throw new BadRequestException(`Invalid ${fieldName}`);
     }
     return this.toStartOfUtcDay(parsed);
+  }
+
+  private normalizeBookingSource(
+    bookingSource?: BookingSource | string | null,
+    source?: BookingSource | string | null,
+  ): BookingSource {
+    const rawSource = String(
+      bookingSource ?? source ?? BookingSource.WALK_IN,
+    )
+      .trim()
+      .toUpperCase()
+      .replace(/[\s-]+/g, "_");
+
+    if (rawSource === BookingSource.BROKER) {
+      return BookingSource.BROKER;
+    }
+
+    if (rawSource === BookingSource.WALK_IN || rawSource === "WALKIN") {
+      return BookingSource.WALK_IN;
+    }
+
+    throw new BadRequestException(
+      "bookingSource must be either WALK_IN or BROKER",
+    );
+  }
+
+  private normalizeBrokerName(
+    bookingSource: BookingSource,
+    brokerName?: string | null,
+  ): string | null {
+    const normalizedBrokerName =
+      typeof brokerName === "string" ? brokerName.trim() : "";
+
+    if (bookingSource === BookingSource.BROKER) {
+      if (!normalizedBrokerName) {
+        throw new BadRequestException(
+          "Broker name is required when booking source is BROKER",
+        );
+      }
+      return normalizedBrokerName;
+    }
+
+    return null;
   }
 
   private monthKey(date: Date) {
@@ -183,7 +226,9 @@ export class BookingsService {
     roomId?: string;
     moveInDate?: string;
     moveOutDate?: string;
-    source?: string;
+    source?: BookingSource | string;
+    bookingSource?: BookingSource | string;
+    brokerName?: string | null;
   }) {
     console.log("BOOKING SERVICE CREATE INPUT:", input);
 
@@ -193,7 +238,15 @@ export class BookingsService {
       moveInDate,
       moveOutDate,
       source,
+      bookingSource,
+      brokerName,
     } = input;
+
+    const normalizedSource = this.normalizeBookingSource(bookingSource, source);
+    const normalizedBrokerName = this.normalizeBrokerName(
+      normalizedSource,
+      brokerName,
+    );
 
     if (!userId || !roomId || !moveInDate) {
       console.error("BOOKING VALIDATION FAILED:", { userId, roomId, moveInDate });
@@ -340,6 +393,8 @@ export class BookingsService {
           moveOutDate: normalizedMoveOutDate,
           checkoutDate: normalizedMoveOutDate,
           status: "PENDING_APPROVAL" as any,
+          bookingSource: normalizedSource,
+          brokerName: normalizedBrokerName,
           expiresAt: null,
           statusHistory: {
             create: {
@@ -702,15 +757,7 @@ export class BookingsService {
   }
 
   async reject(id: string) {
-    // Get the booking first to find the user
-    const booking = await this.findOne(id);
-    
-    // Update booking status to REJECTED
-    const updated = await this.updateStatus(id, "REJECTED", "Booking rejected by admin");
-    
-    // Room stays AVAILABLE - no changes needed
-    
-    return updated;
+    return this.updateStatus(id, "REJECTED", "Booking rejected by admin");
   }
 
   /**
@@ -732,7 +779,7 @@ export class BookingsService {
     }> = [];
     for (const booking of expiredBookings) {
       try {
-        const updated = await this.updateStatus(
+        await this.updateStatus(
           booking.id,
           "EXPIRED",
           "Booking completed at move-out date",

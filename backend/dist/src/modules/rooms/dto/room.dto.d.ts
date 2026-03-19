@@ -5,15 +5,16 @@ export declare class RoomImageDto {
     order?: number;
     isPrimary?: boolean;
 }
+export declare class RoomMediaDto {
+    type: string;
+    url: string;
+}
 export declare class CreateRoomDto {
     name: string;
     type: RoomType;
     description?: string;
     videoUrl?: string;
-    media?: Array<{
-        type: string;
-        url: string;
-    }>;
+    media?: RoomMediaDto[];
     rules?: string[];
     floor: number;
     area: number;
@@ -28,10 +29,7 @@ export declare class UpdateRoomDto {
     type?: RoomType;
     description?: string;
     videoUrl?: string;
-    media?: Array<{
-        type: string;
-        url: string;
-    }>;
+    media?: RoomMediaDto[];
     rules?: string[];
     floor?: number;
     area?: number;

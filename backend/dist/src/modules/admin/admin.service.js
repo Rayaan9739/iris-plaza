@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const notifications_service_1 = require("../notifications/notifications.service");
 const event_emitter_service_1 = require("../../common/services/event-emitter.service");
@@ -21,6 +22,10 @@ let AdminService = class AdminService {
         this.notificationsService = notificationsService;
         this.eventEmitter = eventEmitter;
         this.paymentsService = paymentsService;
+        this.activeTenantBookingStatuses = [
+            client_1.BookingStatus.APPROVED,
+            client_1.BookingStatus.APPROVED_PENDING_PAYMENT,
+        ];
         this.roomSafeSelect = {
             id: true,
             name: true,
@@ -51,6 +56,18 @@ let AdminService = class AdminService {
             return "REJECTED";
         return "PENDING";
     }
+    normalizeBookingSource(bookingSource) {
+        return bookingSource === client_1.BookingSource.BROKER
+            ? client_1.BookingSource.BROKER
+            : client_1.BookingSource.WALK_IN;
+    }
+    normalizeBrokerName(bookingSource, brokerName) {
+        if (this.normalizeBookingSource(bookingSource) !== client_1.BookingSource.BROKER) {
+            return null;
+        }
+        const normalizedBrokerName = typeof brokerName === "string" ? brokerName.trim() : "";
+        return normalizedBrokerName || null;
+    }
     async getDashboardStats() {
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -64,7 +81,7 @@ let AdminService = class AdminService {
                 where: { deletedAt: null, isAvailable: false },
             }),
             this.prisma.booking.count({
-                where: { status: { in: ["APPROVED", "APPROVED_PENDING_PAYMENT"] } },
+                where: { status: { in: this.activeTenantBookingStatuses } },
             }),
             this.prisma.booking.count({
                 where: { status: { in: ["PENDING_APPROVAL", "VERIFICATION_PENDING"] } },
@@ -140,7 +157,7 @@ let AdminService = class AdminService {
         }
     }
     async getAdminBookings() {
-        return this.prisma.booking.findMany({
+        const bookings = await this.prisma.booking.findMany({
             include: {
                 user: true,
                 room: { select: this.roomSafeSelect },
@@ -149,10 +166,18 @@ let AdminService = class AdminService {
             },
             orderBy: { createdAt: "desc" },
         });
+        return bookings.map((booking) => {
+            const bookingSource = this.normalizeBookingSource(booking.bookingSource);
+            return {
+                ...booking,
+                bookingSource,
+                brokerName: this.normalizeBrokerName(bookingSource, booking.brokerName),
+            };
+        });
     }
     async getAllTenants() {
         const approvedBookings = await this.prisma.booking.findMany({
-            where: { status: "APPROVED" },
+            where: { status: { in: this.activeTenantBookingStatuses } },
             include: { user: true, room: { select: this.roomSafeSelect } },
             orderBy: { createdAt: "desc" },
         });
@@ -177,11 +202,18 @@ let AdminService = class AdminService {
         const booking = await this.prisma.booking.findFirst({
             where: {
                 userId: tenantId,
-                status: {
-                    in: ["APPROVED", "APPROVED_PENDING_PAYMENT"]
-                }
+                status: { in: this.activeTenantBookingStatuses },
             },
-            include: {
+            select: {
+                id: true,
+                userId: true,
+                status: true,
+                startDate: true,
+                endDate: true,
+                moveInDate: true,
+                moveOutDate: true,
+                bookingSource: true,
+                brokerName: true,
                 user: true,
                 room: { select: this.roomSafeSelect },
                 agreement: true
@@ -195,6 +227,8 @@ let AdminService = class AdminService {
             where: { userId: tenantId },
             orderBy: { uploadedAt: "desc" },
         });
+        const bookingSource = this.normalizeBookingSource(booking.bookingSource);
+        const brokerName = this.normalizeBrokerName(bookingSource, booking.brokerName);
         return {
             id: booking.user.id,
             name: [booking.user.firstName, booking.user.lastName]
@@ -211,6 +245,8 @@ let AdminService = class AdminService {
                 moveOutDate: booking.moveOutDate,
                 startDate: booking.startDate,
                 endDate: booking.endDate,
+                bookingSource,
+                brokerName,
             },
             room: {
                 id: booking.room.id,
@@ -239,7 +275,7 @@ let AdminService = class AdminService {
         const booking = await this.prisma.booking.findFirst({
             where: {
                 userId,
-                status: "APPROVED",
+                status: { in: this.activeTenantBookingStatuses },
             },
             include: { room: { select: this.roomSafeSelect }, user: true },
             orderBy: { createdAt: "desc" },
@@ -372,7 +408,7 @@ let AdminService = class AdminService {
             return [];
         }
     }
-    async approveMaintenanceRequest(id, amountToPayNow) {
+    async approveMaintenanceRequest(id, _amountToPayNow) {
         try {
             const ticket = await this.prisma.maintenanceTicket.findUnique({
                 where: { id },

@@ -102,9 +102,12 @@ let AdminController = class AdminController {
     async getPendingVerifications() {
         return this.executeAdminAction(() => this.adminService.getPendingVerifications(), "Failed to fetch pending verifications");
     }
-    async createRoom(files, body, req) {
+    async createRoom(files, body, _req) {
         return this.executeAdminAction(async () => {
+            console.log("FILES:", files);
+            console.log("BODY:", body);
             console.log("[CREATE ROOM] Raw body keys:", Object.keys(body || {}));
+            console.log("[CREATE ROOM] Files received:", files?.length || 0);
             console.log("[CREATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
             console.log("[CREATE ROOM] Received room type:", body.type);
             console.log("[CREATE ROOM] Full body:", JSON.stringify(body));
@@ -178,8 +181,10 @@ let AdminController = class AdminController {
             return this.roomsService.create(dto);
         }, "Room operation failed");
     }
-    async updateRoom(id, files, body, req) {
+    async updateRoom(id, files, body, _req) {
         return this.executeAdminAction(async () => {
+            console.log("FILES:", files);
+            console.log("BODY:", body);
             console.log("[UPDATE ROOM] Raw body keys:", Object.keys(body || {}));
             console.log("[UPDATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
             console.log("[UPDATE ROOM] Received room type:", body.type);
@@ -204,7 +209,10 @@ let AdminController = class AdminController {
             if (Array.isArray(existingMediaParsed)) {
                 media.push(...existingMediaParsed);
             }
+            console.log("[UPDATE ROOM] Files received:", files?.length || 0);
             if (files && files.length) {
+                console.log("[UPDATE ROOM] First file buffer exists:", !!files[0].buffer);
+                console.log("[UPDATE ROOM] First file size:", files[0].size);
                 for (const file of files) {
                     try {
                         const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
@@ -453,7 +461,7 @@ __decorate([
     (0, common_1.Post)("rooms"),
     (0, swagger_1.ApiOperation)({ summary: "Create a room listing (Admin only)" }),
     (0, common_1.UsePipes)(new common_1.ValidationPipe({ transform: true, whitelist: false })),
-    (0, common_1.UseInterceptors)((0, platform_express_1.AnyFilesInterceptor)()),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)("media")),
     __param(0, (0, common_1.UploadedFiles)()),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
@@ -465,7 +473,7 @@ __decorate([
     (0, common_1.Put)("rooms/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Update a room listing (Admin only)" }),
     (0, common_1.UsePipes)(new common_1.ValidationPipe({ transform: true, whitelist: false })),
-    (0, common_1.UseInterceptors)((0, platform_express_1.AnyFilesInterceptor)()),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)("media")),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.UploadedFiles)()),
     __param(2, (0, common_1.Body)()),

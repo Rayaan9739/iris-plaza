@@ -1,10 +1,11 @@
 import {
-  IsDateString,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsEnum,
 } from "class-validator";
 import { Transform } from "class-transformer";
+import { BookingSource } from "@prisma/client";
 
 export class CreateBookingDto {
   // Legacy/extra fields from older frontend payloads.
@@ -51,7 +52,17 @@ export class CreateBookingDto {
   @IsString()
   deposit?: string;
 
+  // Legacy field - maps to bookingSource
   @IsOptional()
   @IsString()
   source?: string;
+
+  // New fields for booking source
+  @IsOptional()
+  @IsEnum(BookingSource)
+  bookingSource?: BookingSource;
+
+  @IsOptional()
+  @IsString()
+  brokerName?: string;
 }

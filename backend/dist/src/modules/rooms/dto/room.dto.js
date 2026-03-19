@@ -9,11 +9,25 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateRoomDto = exports.CreateRoomDto = exports.RoomImageDto = void 0;
+exports.UpdateRoomDto = exports.CreateRoomDto = exports.RoomMediaDto = exports.RoomImageDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 const room_type_enum_1 = require("../enums/room-type.enum");
+const LEGACY_ROOM_TYPE_MAP = {
+    STUDIO: room_type_enum_1.RoomType.ONE_BHK,
+    SINGLE: room_type_enum_1.RoomType.ONE_BHK,
+    DOUBLE: room_type_enum_1.RoomType.ONE_BHK,
+    THREE_BHK: room_type_enum_1.RoomType.TWO_BHK,
+    SUITE: room_type_enum_1.RoomType.PENTHOUSE,
+    PENT_HOUSE: room_type_enum_1.RoomType.PENTHOUSE,
+};
+function normalizeRoomTypeValue(value) {
+    if (!value)
+        return value;
+    const normalized = String(value).trim().replace(/\s+/g, "_").toUpperCase();
+    return LEGACY_ROOM_TYPE_MAP[normalized] ?? normalized;
+}
 class RoomImageDto {
 }
 exports.RoomImageDto = RoomImageDto;
@@ -41,6 +55,22 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], RoomImageDto.prototype, "isPrimary", void 0);
+class RoomMediaDto {
+}
+exports.RoomMediaDto = RoomMediaDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ enum: ["image", "video", "unknown"] }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsIn)(["image", "video", "unknown"]),
+    __metadata("design:type", String)
+], RoomMediaDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], RoomMediaDto.prototype, "url", void 0);
 class CreateRoomDto {
 }
 exports.CreateRoomDto = CreateRoomDto;
@@ -54,13 +84,9 @@ __decorate([
     (0, swagger_1.ApiProperty)({
         enum: room_type_enum_1.RoomType,
     }),
-    (0, class_transformer_1.Transform)(({ value }) => {
-        if (!value)
-            return value;
-        return String(value).trim().replace(/\s+/g, "_").toUpperCase();
-    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeRoomTypeValue(value)),
     (0, class_validator_1.IsEnum)(room_type_enum_1.RoomType, {
-        message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
+        message: "Room type must be ONE_BHK, TWO_BHK, or PENTHOUSE",
     }),
     __metadata("design:type", String)
 ], CreateRoomDto.prototype, "type", void 0);
@@ -84,7 +110,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
-    (0, class_transformer_1.Type)(() => Object),
+    (0, class_transformer_1.Type)(() => RoomMediaDto),
     __metadata("design:type", Array)
 ], CreateRoomDto.prototype, "media", void 0);
 __decorate([
@@ -189,13 +215,9 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: room_type_enum_1.RoomType }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_transformer_1.Transform)(({ value }) => {
-        if (!value)
-            return value;
-        return String(value).trim().replace(/\s+/g, "_").toUpperCase();
-    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeRoomTypeValue(value)),
     (0, class_validator_1.IsEnum)(room_type_enum_1.RoomType, {
-        message: "Room type must be ONE_BHK, TWO_BHK, or PENT_HOUSE",
+        message: "Room type must be ONE_BHK, TWO_BHK, or PENTHOUSE",
     }),
     __metadata("design:type", String)
 ], UpdateRoomDto.prototype, "type", void 0);
@@ -219,7 +241,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
-    (0, class_transformer_1.Type)(() => Object),
+    (0, class_transformer_1.Type)(() => RoomMediaDto),
     __metadata("design:type", Array)
 ], UpdateRoomDto.prototype, "media", void 0);
 __decorate([

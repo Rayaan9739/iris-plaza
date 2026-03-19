@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const cancellation_request_service_1 = require("./cancellation-request.service");
 const cancellation_request_controller_1 = require("./cancellation-request.controller");
 const prisma_module_1 = require("../../prisma/prisma.module");
+const notifications_module_1 = require("../notifications/notifications.module");
 let CancellationRequestModule = class CancellationRequestModule {
 };
 exports.CancellationRequestModule = CancellationRequestModule;
 exports.CancellationRequestModule = CancellationRequestModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
+        imports: [prisma_module_1.PrismaModule, notifications_module_1.NotificationsModule],
         controllers: [cancellation_request_controller_1.CancellationRequestController],
         providers: [cancellation_request_service_1.CancellationRequestService],
         exports: [cancellation_request_service_1.CancellationRequestService],

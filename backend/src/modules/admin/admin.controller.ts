@@ -28,7 +28,7 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from "@nestjs/swagger";
-import { FileInterceptor, AnyFilesInterceptor } from "@nestjs/platform-express";
+import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { AdminService } from "./admin.service";
 import { RoomsService } from "@/modules/rooms/rooms.service";
 import { BookingsService } from "@/modules/bookings/bookings.service";
@@ -255,14 +255,17 @@ export class AdminController {
   @Post("rooms")
   @ApiOperation({ summary: "Create a room listing (Admin only)" })
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
-  @UseInterceptors(AnyFilesInterceptor())
+  @UseInterceptors(FilesInterceptor("media"))
   async createRoom(
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: Record<string, any>,
-    @Request() req: any,
+    @Request() _req: any,
   ) {
     return this.executeAdminAction(async () => {
+      console.log("FILES:", files);
+      console.log("BODY:", body);
       console.log("[CREATE ROOM] Raw body keys:", Object.keys(body || {}));
+      console.log("[CREATE ROOM] Files received:", files?.length || 0);
       console.log("[CREATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
       console.log("[CREATE ROOM] Received room type:", body.type);
       console.log("[CREATE ROOM] Full body:", JSON.stringify(body));
@@ -352,14 +355,16 @@ export class AdminController {
   @Put("rooms/:id")
   @ApiOperation({ summary: "Update a room listing (Admin only)" })
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
-  @UseInterceptors(AnyFilesInterceptor())
+  @UseInterceptors(FilesInterceptor("media"))
   async updateRoom(
     @Param("id") id: string,
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: Record<string, any>,
-    @Request() req: any,
+    @Request() _req: any,
   ) {
     return this.executeAdminAction(async () => {
+      console.log("FILES:", files);
+      console.log("BODY:", body);
       console.log("[UPDATE ROOM] Raw body keys:", Object.keys(body || {}));
       console.log("[UPDATE ROOM] body.type value:", body?.type, "- type:", typeof body?.type);
       console.log("[UPDATE ROOM] Received room type:", body.type);
@@ -389,7 +394,10 @@ export class AdminController {
       }
 
       // Upload new files to Cloudinary
+      console.log("[UPDATE ROOM] Files received:", files?.length || 0);
       if (files && files.length) {
+        console.log("[UPDATE ROOM] First file buffer exists:", !!files[0].buffer);
+        console.log("[UPDATE ROOM] First file size:", files[0].size);
         for (const file of files) {
           try {
             const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");

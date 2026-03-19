@@ -2,14 +2,27 @@ import { Injectable, BadRequestException } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CancellationRequestDto } from "./dto/create-cancellation-request.dto";
+import { NotificationsService } from "../notifications/notifications.service";
+import { NotificationType } from "@prisma/client";
 
 @Injectable()
 export class CancellationRequestService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async create(dto: CancellationRequestDto, tenantId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: dto.bookingId },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true },
+        },
+        room: {
+          select: { name: true },
+        },
+      },
     });
 
     if (!booking) {
@@ -33,7 +46,7 @@ export class CancellationRequestService {
       throw new BadRequestException("A cancellation request is already pending");
     }
 
-    return this.prisma.cancellationRequest.upsert({
+    const cancellationRequest = await this.prisma.cancellationRequest.upsert({
       where: { bookingId: dto.bookingId },
       create: {
         bookingId: dto.bookingId,
@@ -51,6 +64,51 @@ export class CancellationRequestService {
         releaseTime: null,
       },
     });
+
+    const tenantName = [booking.user?.firstName, booking.user?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const roomName = String(booking.room?.name || "your room");
+
+    // Notify tenant that request was submitted.
+    await this.notificationsService.create(tenantId, {
+      type: NotificationType.SYSTEM,
+      title: "Cancellation Request Submitted",
+      message:
+        "Your cancellation request was submitted and is pending admin approval.",
+      metadata: {
+        path: "/tenant/room",
+        bookingId: dto.bookingId,
+        cancellationRequestId: cancellationRequest.id,
+        event: "CANCELLATION_REQUEST_SUBMITTED",
+      },
+    });
+
+    // Notify admins that a new cancellation request is pending action.
+    const admins = await this.prisma.user.findMany({
+      where: { role: "ADMIN", isActive: true },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        this.notificationsService.create(admin.id, {
+          type: NotificationType.SYSTEM,
+          title: "New Cancellation Request",
+          message: `${
+            tenantName || "A tenant"
+          } requested cancellation for ${roomName}.`,
+          metadata: {
+            path: "/admin/cancellation-requests",
+            bookingId: dto.bookingId,
+            cancellationRequestId: cancellationRequest.id,
+            event: "CANCELLATION_REQUEST_PENDING",
+          },
+        }),
+      ),
+    );
+
+    return cancellationRequest;
   }
 
   async getPendingRequests() {
@@ -131,6 +189,20 @@ export class CancellationRequestService {
             user: true,
           },
         },
+      },
+    });
+
+    // Notify tenant that cancellation was approved.
+    await this.notificationsService.create(request.tenantId, {
+      type: NotificationType.SYSTEM,
+      title: "Cancellation Approved",
+      message:
+        "Your cancellation request has been approved. The room has been released.",
+      metadata: {
+        path: "/tenant/room",
+        bookingId: request.bookingId,
+        cancellationRequestId: requestId,
+        event: "CANCELLATION_REQUEST_APPROVED",
       },
     });
 
