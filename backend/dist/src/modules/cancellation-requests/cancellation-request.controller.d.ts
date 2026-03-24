@@ -5,17 +5,17 @@ export declare class CancellationRequestController {
     constructor(cancellationRequestService: CancellationRequestService);
     createCancellationRequest(dto: CancellationRequestDto, req: any): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        status: import(".prisma/client").$Enums.CancellationRequestStatus;
         bookingId: string;
         tenantId: string;
         reason: string | null;
-        status: import(".prisma/client").$Enums.CancellationRequestStatus;
         approvedAt: Date | null;
         approvedBy: string | null;
         rejectionReason: string | null;
         releaseTime: Date | null;
         requestedAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getMyRequest(req: any): Promise<{
         success: boolean;
@@ -23,13 +23,13 @@ export declare class CancellationRequestController {
             booking: {
                 room: {
                     id: string;
-                    status: import(".prisma/client").$Enums.RoomStatus;
                     createdAt: Date;
                     updatedAt: Date;
-                    name: string;
                     deletedAt: Date | null;
-                    type: import(".prisma/client").$Enums.RoomType;
+                    name: string;
                     description: string | null;
+                    status: import(".prisma/client").$Enums.RoomStatus;
+                    type: import(".prisma/client").$Enums.RoomType;
                     floor: number;
                     area: number;
                     rent: import("@prisma/client/runtime/library").Decimal;
@@ -42,51 +42,70 @@ export declare class CancellationRequestController {
                 };
             } & {
                 id: string;
-                status: import(".prisma/client").$Enums.BookingStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
-                roomId: string;
-                startDate: Date;
-                endDate: Date | null;
+                deletedAt: Date | null;
                 moveInDate: Date | null;
                 moveOutDate: Date | null;
+                userId: string;
+                expiresAt: Date | null;
+                roomId: string;
+                status: import(".prisma/client").$Enums.BookingStatus;
+                startDate: Date;
+                endDate: Date | null;
                 checkoutDate: Date | null;
                 bookingFee: import("@prisma/client/runtime/library").Decimal | null;
                 bookingFeePaid: boolean;
-                expiresAt: Date | null;
-                deletedAt: Date | null;
                 bookingSource: import(".prisma/client").$Enums.BookingSource;
                 brokerName: string | null;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             bookingId: string;
             tenantId: string;
             reason: string | null;
-            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             approvedAt: Date | null;
             approvedBy: string | null;
             rejectionReason: string | null;
             releaseTime: Date | null;
             requestedAt: Date;
-            createdAt: Date;
-            updatedAt: Date;
         }) | null;
     }>;
     getPendingRequests(): Promise<{
         success: boolean;
         data: ({
             booking: {
-                room: {
+                user: {
+                    dob: Date | null;
+                    phone: string;
+                    email: string | null;
+                    firstName: string;
+                    lastName: string;
                     id: string;
-                    status: import(".prisma/client").$Enums.RoomStatus;
+                    password: string | null;
+                    role: import(".prisma/client").$Enums.UserRole;
+                    isActive: boolean;
+                    isApproved: boolean;
+                    accountStatus: import(".prisma/client").$Enums.AccountStatus;
+                    isEmailVerified: boolean;
+                    isPhoneVerified: boolean;
+                    emailVerifyToken: string | null;
                     createdAt: Date;
                     updatedAt: Date;
-                    name: string;
                     deletedAt: Date | null;
-                    type: import(".prisma/client").$Enums.RoomType;
+                };
+                room: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    deletedAt: Date | null;
+                    name: string;
                     description: string | null;
+                    status: import(".prisma/client").$Enums.RoomStatus;
+                    type: import(".prisma/client").$Enums.RoomType;
                     floor: number;
                     area: number;
                     rent: import("@prisma/client/runtime/library").Decimal;
@@ -97,74 +116,57 @@ export declare class CancellationRequestController {
                     availableAt: Date | null;
                     videoUrl: string | null;
                 };
-                user: {
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    deletedAt: Date | null;
-                    email: string | null;
-                    phone: string;
-                    password: string;
-                    role: import(".prisma/client").$Enums.UserRole;
-                    firstName: string;
-                    lastName: string;
-                    isActive: boolean;
-                    isApproved: boolean;
-                    accountStatus: import(".prisma/client").$Enums.AccountStatus;
-                    isEmailVerified: boolean;
-                    isPhoneVerified: boolean;
-                    emailVerifyToken: string | null;
-                };
             } & {
                 id: string;
-                status: import(".prisma/client").$Enums.BookingStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
-                roomId: string;
-                startDate: Date;
-                endDate: Date | null;
+                deletedAt: Date | null;
                 moveInDate: Date | null;
                 moveOutDate: Date | null;
+                userId: string;
+                expiresAt: Date | null;
+                roomId: string;
+                status: import(".prisma/client").$Enums.BookingStatus;
+                startDate: Date;
+                endDate: Date | null;
                 checkoutDate: Date | null;
                 bookingFee: import("@prisma/client/runtime/library").Decimal | null;
                 bookingFeePaid: boolean;
-                expiresAt: Date | null;
-                deletedAt: Date | null;
                 bookingSource: import(".prisma/client").$Enums.BookingSource;
                 brokerName: string | null;
             };
             tenant: {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                deletedAt: Date | null;
-                email: string | null;
+                dob: Date | null;
                 phone: string;
-                password: string;
-                role: import(".prisma/client").$Enums.UserRole;
+                email: string | null;
                 firstName: string;
                 lastName: string;
+                id: string;
+                password: string | null;
+                role: import(".prisma/client").$Enums.UserRole;
                 isActive: boolean;
                 isApproved: boolean;
                 accountStatus: import(".prisma/client").$Enums.AccountStatus;
                 isEmailVerified: boolean;
                 isPhoneVerified: boolean;
                 emailVerifyToken: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             bookingId: string;
             tenantId: string;
             reason: string | null;
-            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             approvedAt: Date | null;
             approvedBy: string | null;
             rejectionReason: string | null;
             releaseTime: Date | null;
             requestedAt: Date;
-            createdAt: Date;
-            updatedAt: Date;
         })[];
     }>;
     approveRequest(req: any, requestId: string): Promise<{
@@ -172,15 +174,34 @@ export declare class CancellationRequestController {
         message: string;
         data: {
             booking: {
-                room: {
+                user: {
+                    dob: Date | null;
+                    phone: string;
+                    email: string | null;
+                    firstName: string;
+                    lastName: string;
                     id: string;
-                    status: import(".prisma/client").$Enums.RoomStatus;
+                    password: string | null;
+                    role: import(".prisma/client").$Enums.UserRole;
+                    isActive: boolean;
+                    isApproved: boolean;
+                    accountStatus: import(".prisma/client").$Enums.AccountStatus;
+                    isEmailVerified: boolean;
+                    isPhoneVerified: boolean;
+                    emailVerifyToken: string | null;
                     createdAt: Date;
                     updatedAt: Date;
-                    name: string;
                     deletedAt: Date | null;
-                    type: import(".prisma/client").$Enums.RoomType;
+                };
+                room: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    deletedAt: Date | null;
+                    name: string;
                     description: string | null;
+                    status: import(".prisma/client").$Enums.RoomStatus;
+                    type: import(".prisma/client").$Enums.RoomType;
                     floor: number;
                     area: number;
                     rent: import("@prisma/client/runtime/library").Decimal;
@@ -191,56 +212,38 @@ export declare class CancellationRequestController {
                     availableAt: Date | null;
                     videoUrl: string | null;
                 };
-                user: {
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    deletedAt: Date | null;
-                    email: string | null;
-                    phone: string;
-                    password: string;
-                    role: import(".prisma/client").$Enums.UserRole;
-                    firstName: string;
-                    lastName: string;
-                    isActive: boolean;
-                    isApproved: boolean;
-                    accountStatus: import(".prisma/client").$Enums.AccountStatus;
-                    isEmailVerified: boolean;
-                    isPhoneVerified: boolean;
-                    emailVerifyToken: string | null;
-                };
             } & {
                 id: string;
-                status: import(".prisma/client").$Enums.BookingStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
-                roomId: string;
-                startDate: Date;
-                endDate: Date | null;
+                deletedAt: Date | null;
                 moveInDate: Date | null;
                 moveOutDate: Date | null;
+                userId: string;
+                expiresAt: Date | null;
+                roomId: string;
+                status: import(".prisma/client").$Enums.BookingStatus;
+                startDate: Date;
+                endDate: Date | null;
                 checkoutDate: Date | null;
                 bookingFee: import("@prisma/client/runtime/library").Decimal | null;
                 bookingFeePaid: boolean;
-                expiresAt: Date | null;
-                deletedAt: Date | null;
                 bookingSource: import(".prisma/client").$Enums.BookingSource;
                 brokerName: string | null;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             bookingId: string;
             tenantId: string;
             reason: string | null;
-            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             approvedAt: Date | null;
             approvedBy: string | null;
             rejectionReason: string | null;
             releaseTime: Date | null;
             requestedAt: Date;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
     rejectRequest(req: any, requestId: string, body: {
@@ -250,15 +253,34 @@ export declare class CancellationRequestController {
         message: string;
         data: {
             booking: {
-                room: {
+                user: {
+                    dob: Date | null;
+                    phone: string;
+                    email: string | null;
+                    firstName: string;
+                    lastName: string;
                     id: string;
-                    status: import(".prisma/client").$Enums.RoomStatus;
+                    password: string | null;
+                    role: import(".prisma/client").$Enums.UserRole;
+                    isActive: boolean;
+                    isApproved: boolean;
+                    accountStatus: import(".prisma/client").$Enums.AccountStatus;
+                    isEmailVerified: boolean;
+                    isPhoneVerified: boolean;
+                    emailVerifyToken: string | null;
                     createdAt: Date;
                     updatedAt: Date;
-                    name: string;
                     deletedAt: Date | null;
-                    type: import(".prisma/client").$Enums.RoomType;
+                };
+                room: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    deletedAt: Date | null;
+                    name: string;
                     description: string | null;
+                    status: import(".prisma/client").$Enums.RoomStatus;
+                    type: import(".prisma/client").$Enums.RoomType;
                     floor: number;
                     area: number;
                     rent: import("@prisma/client/runtime/library").Decimal;
@@ -269,56 +291,38 @@ export declare class CancellationRequestController {
                     availableAt: Date | null;
                     videoUrl: string | null;
                 };
-                user: {
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    deletedAt: Date | null;
-                    email: string | null;
-                    phone: string;
-                    password: string;
-                    role: import(".prisma/client").$Enums.UserRole;
-                    firstName: string;
-                    lastName: string;
-                    isActive: boolean;
-                    isApproved: boolean;
-                    accountStatus: import(".prisma/client").$Enums.AccountStatus;
-                    isEmailVerified: boolean;
-                    isPhoneVerified: boolean;
-                    emailVerifyToken: string | null;
-                };
             } & {
                 id: string;
-                status: import(".prisma/client").$Enums.BookingStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
-                roomId: string;
-                startDate: Date;
-                endDate: Date | null;
+                deletedAt: Date | null;
                 moveInDate: Date | null;
                 moveOutDate: Date | null;
+                userId: string;
+                expiresAt: Date | null;
+                roomId: string;
+                status: import(".prisma/client").$Enums.BookingStatus;
+                startDate: Date;
+                endDate: Date | null;
                 checkoutDate: Date | null;
                 bookingFee: import("@prisma/client/runtime/library").Decimal | null;
                 bookingFeePaid: boolean;
-                expiresAt: Date | null;
-                deletedAt: Date | null;
                 bookingSource: import(".prisma/client").$Enums.BookingSource;
                 brokerName: string | null;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             bookingId: string;
             tenantId: string;
             reason: string | null;
-            status: import(".prisma/client").$Enums.CancellationRequestStatus;
             approvedAt: Date | null;
             approvedBy: string | null;
             rejectionReason: string | null;
             releaseTime: Date | null;
             requestedAt: Date;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
 }

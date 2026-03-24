@@ -11,13 +11,13 @@ export declare class MaintenanceService {
     findMyTickets(userId: string): Promise<any[]>;
     create(userId: string, dto: CreateMaintenanceDto): Promise<{
         id: string;
-        title: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TicketStatus;
-        tenantId: string;
-        bookingId: string | null;
-        description: string;
         updatedAt: Date;
+        description: string;
+        status: import(".prisma/client").$Enums.TicketStatus;
+        title: string;
+        bookingId: string | null;
+        tenantId: string;
         category: string;
         requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
@@ -30,13 +30,13 @@ export declare class MaintenanceService {
         [x: symbol]: never;
     } & {
         id: string;
-        title: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TicketStatus;
-        tenantId: string;
-        bookingId: string | null;
-        description: string;
         updatedAt: Date;
+        description: string;
+        status: import(".prisma/client").$Enums.TicketStatus;
+        title: string;
+        bookingId: string | null;
+        tenantId: string;
         category: string;
         requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
@@ -45,13 +45,13 @@ export declare class MaintenanceService {
     }>;
     updateStatus(id: string, status: string, resolution?: string): Promise<{
         id: string;
-        title: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TicketStatus;
-        tenantId: string;
-        bookingId: string | null;
-        description: string;
         updatedAt: Date;
+        description: string;
+        status: import(".prisma/client").$Enums.TicketStatus;
+        title: string;
+        bookingId: string | null;
+        tenantId: string;
         category: string;
         requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
@@ -64,13 +64,13 @@ export declare class MaintenanceService {
         [x: symbol]: never;
     } & {
         id: string;
-        title: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TicketStatus;
-        tenantId: string;
-        bookingId: string | null;
-        description: string;
         updatedAt: Date;
+        description: string;
+        status: import(".prisma/client").$Enums.TicketStatus;
+        title: string;
+        bookingId: string | null;
+        tenantId: string;
         category: string;
         requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
@@ -83,13 +83,13 @@ export declare class MaintenanceService {
         [x: symbol]: never;
     } & {
         id: string;
-        title: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TicketStatus;
-        tenantId: string;
-        bookingId: string | null;
-        description: string;
         updatedAt: Date;
+        description: string;
+        status: import(".prisma/client").$Enums.TicketStatus;
+        title: string;
+        bookingId: string | null;
+        tenantId: string;
         category: string;
         requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
@@ -98,13 +98,13 @@ export declare class MaintenanceService {
     }>;
     rejectRequest(ticketId: string, reason?: string): Promise<{
         id: string;
-        title: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TicketStatus;
-        tenantId: string;
-        bookingId: string | null;
-        description: string;
         updatedAt: Date;
+        description: string;
+        status: import(".prisma/client").$Enums.TicketStatus;
+        title: string;
+        bookingId: string | null;
+        tenantId: string;
         category: string;
         requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;

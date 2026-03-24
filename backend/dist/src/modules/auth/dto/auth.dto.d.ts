@@ -1,9 +1,9 @@
 export declare class SignUpDto {
     phone: string;
     email?: string;
-    password: string;
     firstName: string;
     lastName: string;
+    dob: string;
     fatherName?: string;
     relation?: string;
     aadhaarNumber?: string;
@@ -13,8 +13,12 @@ export declare class SignUpDto {
 }
 export declare class SignInDto {
     phone: string;
-    password: string;
+    dob: string;
 }
 export declare class RefreshTokenDto {
     refreshToken: string;
+}
+export declare class SetDobDto {
+    phone: string;
+    dob: string;
 }

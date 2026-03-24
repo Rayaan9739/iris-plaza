@@ -182,6 +182,27 @@ export class UpdateRoomDto {
   @IsString()
   name?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isAvailable?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  occupiedUntil?: string;
+
+  // Tenant info for Mark Occupied flow
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tenantName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tenantPhone?: string;
+
   @ApiPropertyOptional({ enum: RoomType })
   @IsOptional()
   @Transform(({ value }) => normalizeRoomTypeValue(value))
@@ -250,6 +271,16 @@ export class UpdateRoomDto {
   @Min(1)
   rent?: number;
 
+  @ApiPropertyOptional({ enum: ["WALK_IN", "BROKER"] })
+  @IsOptional()
+  @IsString()
+  bookingSource?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  brokerName?: string | null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
@@ -290,3 +321,4 @@ export class UpdateRoomDto {
   @Type(() => RoomImageDto)
   images?: RoomImageDto[];
 }
+

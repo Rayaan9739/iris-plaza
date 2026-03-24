@@ -9,7 +9,6 @@ import {
   Body,
   BadRequestException,
   HttpException,
-  InternalServerErrorException,
   UploadedFile,
   UploadedFiles,
   UseInterceptors,
@@ -58,11 +57,13 @@ export class AdminController {
     try {
       return await action();
     } catch (error) {
-      console.error(error);
+      // 🔴 Log the FULL error with stack trace for debugging
+      console.error("🔥 BACKEND ERROR:", error);
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new InternalServerErrorException(fallbackMessage);
+      // Re-throw actual error instead of generic message
+      throw error;
     }
   }
 
@@ -99,6 +100,33 @@ export class AdminController {
     return this.executeAdminAction(
       () => this.adminService.getAdminRoom(id),
       "Failed to fetch room",
+    );
+  }
+
+  @Get("amenities")
+  @ApiOperation({ summary: "Get all amenities" })
+  async getAmenities() {
+    return this.executeAdminAction(
+      () => this.adminService.getAmenities(),
+      "Failed to fetch amenities",
+    );
+  }
+
+  @Post("amenities")
+  @ApiOperation({ summary: "Create a global amenity" })
+  async createAmenity(@Body() body: { name?: string }) {
+    return this.executeAdminAction(
+      () => this.adminService.createAmenity(String(body?.name || "")),
+      "Failed to create amenity",
+    );
+  }
+
+  @Delete("amenities/:id")
+  @ApiOperation({ summary: "Delete a global amenity" })
+  async deleteAmenity(@Param("id") id: string) {
+    return this.executeAdminAction(
+      () => this.adminService.deleteAmenity(id),
+      "Failed to delete amenity",
     );
   }
 
@@ -153,6 +181,29 @@ export class AdminController {
     return this.executeAdminAction(
       () => this.adminService.removeTenant(userId),
       "Failed to remove tenant",
+    );
+  }
+
+  @Put("tenants/:id")
+  @ApiOperation({ summary: "Update tenant details and room assignment" })
+  async updateTenant(
+    @Param("id") userId: string,
+    @Body() body: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      updateRoomId?: string;
+      newRoomId?: string;
+      roomChangeDate?: string;
+      extendOccupiedUntil?: string;
+      newRent?: number;
+      bookingSource?: string;
+      brokerName?: string;
+    },
+  ) {
+    return this.executeAdminAction(
+      () => this.adminService.updateTenant(userId, body),
+      "Failed to update tenant",
     );
   }
 
@@ -424,6 +475,14 @@ export class AdminController {
         data.deposit = Number(bodyData.deposit);
       if (bodyData.description !== undefined)
         data.description = bodyData.description || null;
+      if (bodyData.status !== undefined) data.status = bodyData.status;
+      if (bodyData.isAvailable !== undefined) data.isAvailable = bodyData.isAvailable === true || bodyData.isAvailable === 'true';
+      if (bodyData.occupiedUntil !== undefined) data.occupiedUntil = bodyData.occupiedUntil || null;
+      if (bodyData.bookingSource !== undefined) data.bookingSource = bodyData.bookingSource;
+      if (bodyData.brokerName !== undefined) data.brokerName = bodyData.brokerName || null;
+      // Tenant info for Mark Occupied flow
+      if (bodyData.tenantName !== undefined) data.tenantName = bodyData.tenantName;
+      if (bodyData.tenantPhone !== undefined) data.tenantPhone = bodyData.tenantPhone;
 
       if (bodyData.amenities !== undefined) {
         const parsed = parseJsonField(bodyData.amenities, []);
@@ -457,6 +516,93 @@ export class AdminController {
     }, "Room operation failed");
   }
 
+  @Patch("rooms/:id")
+  @ApiOperation({ summary: "Patch a room listing (Admin only) - for Mark Occupied flow" })
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
+  @UseInterceptors(FilesInterceptor("media"))
+  async patchRoom(
+    @Param("id") id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: Record<string, any>,
+    @Request() _req: any,
+  ) {
+    // Reuse the same logic as PUT
+    return this.executeAdminAction(async () => {
+      const bodyData = body || {};
+
+      const parseJsonField = (field: any, defaultValue: any = null): any => {
+        if (field === undefined || field === null || field === "") {
+          return defaultValue;
+        }
+        if (typeof field === "object") {
+          return field;
+        }
+        try {
+          return JSON.parse(field);
+        } catch {
+          return defaultValue;
+        }
+      };
+
+      const media: Array<{ type: string; url: string }> = [];
+      const existingMediaParsed = parseJsonField(bodyData.existingMedia, []);
+      if (Array.isArray(existingMediaParsed)) {
+        media.push(...existingMediaParsed);
+      }
+
+      if (files && files.length) {
+        for (const file of files) {
+          try {
+            const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
+            const type = file.mimetype.startsWith("image/")
+              ? "image"
+              : file.mimetype.startsWith("video/")
+                ? "video"
+                : "unknown";
+            media.push({ type, url: result.secure_url });
+          } catch (uploadError) {
+            console.error("Cloudinary upload error:", uploadError);
+          }
+        }
+      }
+
+      const data: any = {};
+      if (bodyData.name !== undefined) data.name = bodyData.name;
+      if (bodyData.type !== undefined) data.type = bodyData.type;
+      if (bodyData.floor !== undefined) data.floor = Number(bodyData.floor);
+      if (bodyData.area !== undefined) data.area = Number(bodyData.area);
+      if (bodyData.rent !== undefined) data.rent = Number(bodyData.rent);
+      if (bodyData.deposit !== undefined)
+        data.deposit = Number(bodyData.deposit);
+      if (bodyData.description !== undefined)
+        data.description = bodyData.description || null;
+      if (bodyData.status !== undefined) data.status = bodyData.status;
+      if (bodyData.isAvailable !== undefined) data.isAvailable = bodyData.isAvailable === true || bodyData.isAvailable === 'true';
+      if (bodyData.occupiedUntil !== undefined) data.occupiedUntil = bodyData.occupiedUntil || null;
+      if (bodyData.bookingSource !== undefined) data.bookingSource = bodyData.bookingSource;
+      if (bodyData.brokerName !== undefined) data.brokerName = bodyData.brokerName || null;
+      // Tenant info for Mark Occupied flow
+      if (bodyData.tenantName !== undefined) data.tenantName = bodyData.tenantName;
+      if (bodyData.tenantPhone !== undefined) data.tenantPhone = bodyData.tenantPhone;
+
+      if (bodyData.amenities !== undefined) {
+        const parsed = parseJsonField(bodyData.amenities, []);
+        data.amenities = Array.isArray(parsed) ? parsed : [];
+      }
+
+      if (bodyData.rules !== undefined) {
+        const parsed = parseJsonField(bodyData.rules, []);
+        data.rules = Array.isArray(parsed) ? parsed : [];
+      }
+
+      if (bodyData.existingMedia !== undefined || (files && files.length > 0)) {
+        data.media = media;
+      }
+
+      return this.roomsService.update(id, data);
+    }, "Room operation failed");
+  }
+
   @Delete("rooms/:id")
   @ApiOperation({ summary: "Delete a room listing (Admin only)" })
   async deleteRoom(@Param("id") id: string) {
@@ -473,7 +619,11 @@ export class AdminController {
           "Cannot delete room because it has related records. The room has been archived instead."
         );
       }
-      throw new InternalServerErrorException("Failed to delete room");
+      console.error("🔥 deleteRoom error:", error);
+      if (error instanceof Error && error.stack) {
+        console.error("🔥 deleteRoom stack:", error.stack);
+      }
+      throw error;
     }
   }
 

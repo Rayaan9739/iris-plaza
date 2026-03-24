@@ -11,7 +11,7 @@ model User {
   id                   String                @id @default(uuid())
   email                String?               @unique
   phone                String                @unique
-  password             String
+  password             String?
   role                 UserRole              @default(TENANT)
   firstName            String
   lastName             String
@@ -24,6 +24,7 @@ model User {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   deletedAt            DateTime?
+  dob                  DateTime?
   auditLogs            AuditLog[]
   bookings             Booking[]
   cancellationRequests CancellationRequest[]
@@ -415,6 +416,22 @@ model room_rules {
   @@index([room_id], map: "idx_room_rules_room_id")
 }
 
+model room_transfers {
+  id                    BigInt    @id @default(autoincrement())
+  booking_id            String
+  user_id               String
+  from_room_id          String
+  to_room_id            String
+  effective_date        DateTime  @db.Timestamptz(6)
+  desired_move_out_date DateTime? @db.Timestamptz(6)
+  status                String    @default("PENDING")
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([effective_date, status], map: "idx_room_transfers_effective_status")
+  @@index([to_room_id, status], map: "idx_room_transfers_to_room_pending")
+}
+
 enum UserRole {
   ADMIN
   TENANT
@@ -430,6 +447,12 @@ enum AccountStatus {
 enum RoomType {
   ONE_BHK
   TWO_BHK
+  PENT_HOUSE
+  SINGLE
+  DOUBLE
+  STUDIO
+  SUITE
+  THREE_BHK
   PENTHOUSE
 }
 

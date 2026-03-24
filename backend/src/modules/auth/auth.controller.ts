@@ -14,7 +14,12 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
-import { SignUpDto, SignInDto, RefreshTokenDto } from "./dto/auth.dto";
+import {
+  SignUpDto,
+  SignInDto,
+  RefreshTokenDto,
+  SetDobDto,
+} from "./dto/auth.dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 
 @ApiTags("Auth")
@@ -23,26 +28,35 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   /**
-   * Register a new user (tenant requires admin approval)
+   * Register a new user (tenant)
    */
   @Post("signup")
-  @ApiOperation({ summary: "Register a new tenant account (requires admin approval)" })
-  @ApiResponse({ status: 201, description: "User registered successfully, pending approval" })
+  @ApiOperation({ summary: "Register a new tenant account with DOB" })
+  @ApiResponse({ status: 201, description: "User registered successfully" })
   @ApiResponse({ status: 400, description: "Bad request - user already exists" })
   async signUp(@Body() signUpDto: SignUpDto) {
     return this.authService.signUp(signUpDto);
   }
 
   /**
-   * Login with phone and password
+   * Login with phone and DOB
    */
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Sign in with phone and password" })
+  @ApiOperation({ summary: "Sign in with phone and DOB" })
   @ApiResponse({ status: 200, description: "Login successful" })
-  @ApiResponse({ status: 401, description: "Invalid credentials" })
+  @ApiResponse({ status: 401, description: "Invalid DOB" })
   async signIn(@Body() signInDto: SignInDto) {
     return this.authService.signIn(signInDto);
+  }
+
+  @Post("set-dob")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Set DOB for an existing user by phone" })
+  @ApiResponse({ status: 200, description: "DOB set successfully" })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  async setDob(@Body() setDobDto: SetDobDto) {
+    return this.authService.setDob(setDobDto);
   }
 
   /**

@@ -1,5 +1,5 @@
 import { AuthService } from "./auth.service";
-import { SignUpDto, SignInDto, RefreshTokenDto } from "./dto/auth.dto";
+import { SignUpDto, SignInDto, RefreshTokenDto, SetDobDto } from "./dto/auth.dto";
 export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
@@ -10,9 +10,18 @@ export declare class AuthController {
         user: any;
     }>;
     signIn(signInDto: SignInDto): Promise<{
+        message: string;
+        code: string;
+    } | {
         accessToken: string;
         refreshToken: string;
         user: any;
+        message?: undefined;
+        code?: undefined;
+    }>;
+    setDob(setDobDto: SetDobDto): Promise<{
+        message: string;
+        code: string;
     }>;
     refresh(refreshTokenDto: RefreshTokenDto): Promise<{
         accessToken: string;

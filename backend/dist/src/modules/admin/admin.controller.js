@@ -38,11 +38,11 @@ let AdminController = class AdminController {
             return await action();
         }
         catch (error) {
-            console.error(error);
+            console.error("🔥 BACKEND ERROR:", error);
             if (error instanceof common_1.HttpException) {
                 throw error;
             }
-            throw new common_1.InternalServerErrorException(fallbackMessage);
+            throw error;
         }
     }
     async getDashboard() {
@@ -56,6 +56,15 @@ let AdminController = class AdminController {
     }
     async getRoom(id) {
         return this.executeAdminAction(() => this.adminService.getAdminRoom(id), "Failed to fetch room");
+    }
+    async getAmenities() {
+        return this.executeAdminAction(() => this.adminService.getAmenities(), "Failed to fetch amenities");
+    }
+    async createAmenity(body) {
+        return this.executeAdminAction(() => this.adminService.createAmenity(String(body?.name || "")), "Failed to create amenity");
+    }
+    async deleteAmenity(id) {
+        return this.executeAdminAction(() => this.adminService.deleteAmenity(id), "Failed to delete amenity");
     }
     async getBookings() {
         return this.executeAdminAction(() => this.adminService.getAdminBookings(), "Failed to fetch bookings");
@@ -74,6 +83,9 @@ let AdminController = class AdminController {
     }
     async removeTenant(userId) {
         return this.executeAdminAction(() => this.adminService.removeTenant(userId), "Failed to remove tenant");
+    }
+    async updateTenant(userId, body) {
+        return this.executeAdminAction(() => this.adminService.updateTenant(userId, body), "Failed to update tenant");
     }
     async getPayments() {
         return this.executeAdminAction(() => this.adminService.getAdminPayments(), "Failed to fetch payments");
@@ -243,6 +255,20 @@ let AdminController = class AdminController {
                 data.deposit = Number(bodyData.deposit);
             if (bodyData.description !== undefined)
                 data.description = bodyData.description || null;
+            if (bodyData.status !== undefined)
+                data.status = bodyData.status;
+            if (bodyData.isAvailable !== undefined)
+                data.isAvailable = bodyData.isAvailable === true || bodyData.isAvailable === 'true';
+            if (bodyData.occupiedUntil !== undefined)
+                data.occupiedUntil = bodyData.occupiedUntil || null;
+            if (bodyData.bookingSource !== undefined)
+                data.bookingSource = bodyData.bookingSource;
+            if (bodyData.brokerName !== undefined)
+                data.brokerName = bodyData.brokerName || null;
+            if (bodyData.tenantName !== undefined)
+                data.tenantName = bodyData.tenantName;
+            if (bodyData.tenantPhone !== undefined)
+                data.tenantPhone = bodyData.tenantPhone;
             if (bodyData.amenities !== undefined) {
                 const parsed = parseJsonField(bodyData.amenities, []);
                 data.amenities = Array.isArray(parsed) ? parsed : [];
@@ -267,6 +293,87 @@ let AdminController = class AdminController {
             return this.roomsService.update(id, data);
         }, "Room operation failed");
     }
+    async patchRoom(id, files, body, _req) {
+        return this.executeAdminAction(async () => {
+            const bodyData = body || {};
+            const parseJsonField = (field, defaultValue = null) => {
+                if (field === undefined || field === null || field === "") {
+                    return defaultValue;
+                }
+                if (typeof field === "object") {
+                    return field;
+                }
+                try {
+                    return JSON.parse(field);
+                }
+                catch {
+                    return defaultValue;
+                }
+            };
+            const media = [];
+            const existingMediaParsed = parseJsonField(bodyData.existingMedia, []);
+            if (Array.isArray(existingMediaParsed)) {
+                media.push(...existingMediaParsed);
+            }
+            if (files && files.length) {
+                for (const file of files) {
+                    try {
+                        const result = await this.cloudinaryService.uploadImage(file, "iris-plaza/rooms");
+                        const type = file.mimetype.startsWith("image/")
+                            ? "image"
+                            : file.mimetype.startsWith("video/")
+                                ? "video"
+                                : "unknown";
+                        media.push({ type, url: result.secure_url });
+                    }
+                    catch (uploadError) {
+                        console.error("Cloudinary upload error:", uploadError);
+                    }
+                }
+            }
+            const data = {};
+            if (bodyData.name !== undefined)
+                data.name = bodyData.name;
+            if (bodyData.type !== undefined)
+                data.type = bodyData.type;
+            if (bodyData.floor !== undefined)
+                data.floor = Number(bodyData.floor);
+            if (bodyData.area !== undefined)
+                data.area = Number(bodyData.area);
+            if (bodyData.rent !== undefined)
+                data.rent = Number(bodyData.rent);
+            if (bodyData.deposit !== undefined)
+                data.deposit = Number(bodyData.deposit);
+            if (bodyData.description !== undefined)
+                data.description = bodyData.description || null;
+            if (bodyData.status !== undefined)
+                data.status = bodyData.status;
+            if (bodyData.isAvailable !== undefined)
+                data.isAvailable = bodyData.isAvailable === true || bodyData.isAvailable === 'true';
+            if (bodyData.occupiedUntil !== undefined)
+                data.occupiedUntil = bodyData.occupiedUntil || null;
+            if (bodyData.bookingSource !== undefined)
+                data.bookingSource = bodyData.bookingSource;
+            if (bodyData.brokerName !== undefined)
+                data.brokerName = bodyData.brokerName || null;
+            if (bodyData.tenantName !== undefined)
+                data.tenantName = bodyData.tenantName;
+            if (bodyData.tenantPhone !== undefined)
+                data.tenantPhone = bodyData.tenantPhone;
+            if (bodyData.amenities !== undefined) {
+                const parsed = parseJsonField(bodyData.amenities, []);
+                data.amenities = Array.isArray(parsed) ? parsed : [];
+            }
+            if (bodyData.rules !== undefined) {
+                const parsed = parseJsonField(bodyData.rules, []);
+                data.rules = Array.isArray(parsed) ? parsed : [];
+            }
+            if (bodyData.existingMedia !== undefined || (files && files.length > 0)) {
+                data.media = media;
+            }
+            return this.roomsService.update(id, data);
+        }, "Room operation failed");
+    }
     async deleteRoom(id) {
         try {
             const result = await this.roomsService.delete(id);
@@ -279,7 +386,11 @@ let AdminController = class AdminController {
             if (error.code === 'P2003' || error.code === 'P2014') {
                 throw new common_1.BadRequestException("Cannot delete room because it has related records. The room has been archived instead.");
             }
-            throw new common_1.InternalServerErrorException("Failed to delete room");
+            console.error("🔥 deleteRoom error:", error);
+            if (error instanceof Error && error.stack) {
+                console.error("🔥 deleteRoom stack:", error.stack);
+            }
+            throw error;
         }
     }
     async uploadRoomVideo(file) {
@@ -341,6 +452,29 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getRoom", null);
 __decorate([
+    (0, common_1.Get)("amenities"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all amenities" }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getAmenities", null);
+__decorate([
+    (0, common_1.Post)("amenities"),
+    (0, swagger_1.ApiOperation)({ summary: "Create a global amenity" }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "createAmenity", null);
+__decorate([
+    (0, common_1.Delete)("amenities/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete a global amenity" }),
+    __param(0, (0, common_1.Param)("id")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "deleteAmenity", null);
+__decorate([
     (0, common_1.Get)("bookings"),
     (0, swagger_1.ApiOperation)({ summary: "Get all bookings for admin" }),
     __metadata("design:type", Function),
@@ -386,6 +520,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "removeTenant", null);
+__decorate([
+    (0, common_1.Put)("tenants/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Update tenant details and room assignment" }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateTenant", null);
 __decorate([
     (0, common_1.Get)("payments"),
     (0, swagger_1.ApiOperation)({ summary: "Get all payments for admin" }),
@@ -482,6 +625,19 @@ __decorate([
     __metadata("design:paramtypes", [String, Array, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateRoom", null);
+__decorate([
+    (0, common_1.Patch)("rooms/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Patch a room listing (Admin only) - for Mark Occupied flow" }),
+    (0, common_1.UsePipes)(new common_1.ValidationPipe({ transform: true, whitelist: false })),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)("media")),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.UploadedFiles)()),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Array, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "patchRoom", null);
 __decorate([
     (0, common_1.Delete)("rooms/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Delete a room listing (Admin only)" }),

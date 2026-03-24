@@ -22,6 +22,7 @@ export declare class UsersService {
             moveOutDate: Date | null;
             userId: string;
         } | null;
+        dob: Date | null;
         phone: string;
         email: string | null;
         firstName: string;
@@ -58,12 +59,13 @@ export declare class UsersService {
             userId: string;
         } | null;
     } & {
+        dob: Date | null;
         phone: string;
         email: string | null;
-        password: string;
         firstName: string;
         lastName: string;
         id: string;
+        password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         isApproved: boolean;
@@ -102,12 +104,12 @@ export declare class UsersService {
                 deletedAt: Date | null;
                 name: string;
                 description: string | null;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 type: import(".prisma/client").$Enums.RoomType;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -123,8 +125,8 @@ export declare class UsersService {
             moveOutDate: Date | null;
             userId: string;
             expiresAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -133,6 +135,7 @@ export declare class UsersService {
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
         })[];
+        dob: Date | null;
         phone: string;
         email: string | null;
         firstName: string;

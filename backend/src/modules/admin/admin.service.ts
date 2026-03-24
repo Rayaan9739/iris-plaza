@@ -1,8 +1,9 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
-import { BookingSource, BookingStatus } from "@prisma/client";
+import { BookingSource, BookingStatus, Prisma, RoomStatus } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
 import { EventEmitterService } from "@/common/services/event-emitter.service";
@@ -14,6 +15,7 @@ export class AdminService {
     BookingStatus.APPROVED,
     BookingStatus.APPROVED_PENDING_PAYMENT,
   ];
+  private roomTransfersTableReady = false;
 
   constructor(
     private prisma: PrismaService,
@@ -35,6 +37,7 @@ export class AdminService {
     isAvailable: true,
     occupiedFrom: true,
     occupiedUntil: true,
+    availableAt: true,
     videoUrl: true,
     createdAt: true,
     updatedAt: true,
@@ -70,6 +73,124 @@ export class AdminService {
     const normalizedBrokerName =
       typeof brokerName === "string" ? brokerName.trim() : "";
     return normalizedBrokerName || null;
+  }
+
+  private toStartOfUtcDay(date: Date) {
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+  }
+
+  private deriveRoomOccupancyState(
+    occupiedUntil: Date | string | null | undefined,
+    currentStatus?: string | null,
+  ) {
+    const normalizedCurrentStatus = String(currentStatus ?? "").toUpperCase();
+
+    if (normalizedCurrentStatus === RoomStatus.MAINTENANCE) {
+      return {
+        status: RoomStatus.MAINTENANCE,
+        isAvailable: false,
+      };
+    }
+
+    if (normalizedCurrentStatus === RoomStatus.RESERVED) {
+      return {
+        status: RoomStatus.RESERVED,
+        isAvailable: false,
+      };
+    }
+
+    if (!occupiedUntil) {
+      return {
+        status: RoomStatus.AVAILABLE,
+        isAvailable: true,
+      };
+    }
+
+    const parsedOccupiedUntil = new Date(occupiedUntil);
+    if (
+      Number.isNaN(parsedOccupiedUntil.getTime()) ||
+      parsedOccupiedUntil <= new Date()
+    ) {
+      return {
+        status: RoomStatus.AVAILABLE,
+        isAvailable: true,
+      };
+    }
+
+    return {
+      status: RoomStatus.OCCUPIED,
+      isAvailable: false,
+    };
+  }
+
+  private async applyOccupancyStateFromBookings<TRoom extends {
+    id: string;
+    status: string;
+    isAvailable: boolean;
+    occupiedUntil: Date | string | null;
+  }>(rooms: TRoom[]): Promise<TRoom[]> {
+    if (!rooms.length) {
+      return rooms;
+    }
+
+    return rooms.map((room) => {
+      const derivedOccupancy = this.deriveRoomOccupancyState(
+        room.occupiedUntil,
+        room.status,
+      );
+
+      return {
+        ...room,
+        status: derivedOccupancy.status,
+        isAvailable: derivedOccupancy.isAvailable,
+      };
+    });
+  }
+
+  private parseDateInput(value: string | undefined, fieldName: string): Date | undefined {
+    if (value === undefined) return undefined;
+    const trimmed = String(value).trim();
+    if (!trimmed) return undefined;
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${fieldName} must be a valid date`);
+    }
+    return parsed;
+  }
+
+  private async ensureRoomTransfersTable(db: any = this.prisma) {
+    if (this.roomTransfersTableReady) {
+      return;
+    }
+
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS room_transfers (
+        id BIGSERIAL PRIMARY KEY,
+        booking_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        from_room_id TEXT NOT NULL,
+        to_room_id TEXT NOT NULL,
+        effective_date TIMESTAMPTZ NOT NULL,
+        desired_move_out_date TIMESTAMPTZ NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS idx_room_transfers_effective_status
+      ON room_transfers (effective_date, status)
+    `);
+
+    await db.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS idx_room_transfers_to_room_pending
+      ON room_transfers (to_room_id, status)
+    `);
+
+    this.roomTransfersTableReady = true;
   }
 
   async getDashboardStats() {
@@ -143,11 +264,23 @@ export class AdminService {
   }
 
   async getAdminRooms() {
-    return this.prisma.room.findMany({
-      where: { deletedAt: null },
-      select: this.roomSafeSelect,
-      orderBy: { createdAt: "desc" },
-    });
+    console.log("🔍 getAdminRooms: Starting query...");
+    try {
+      const rooms = await this.prisma.room.findMany({
+        where: { deletedAt: null },
+        select: this.roomSafeSelect,
+        orderBy: [
+          { floor: 'asc' },
+          { name: 'asc' }
+        ],
+      });
+      const normalizedRooms = await this.applyOccupancyStateFromBookings(rooms);
+      console.log("getAdminRooms: Found", normalizedRooms.length, "rooms");
+      return normalizedRooms;
+    } catch (error) {
+      console.error("❌ getAdminRooms ERROR:", error);
+      throw error;
+    }
   }
 
   async getAdminRoom(id: string) {
@@ -168,8 +301,8 @@ export class AdminService {
       if (!room) {
         throw new NotFoundException("Room not found");
       }
-
-      return room;
+      const [normalizedRoom] = await this.applyOccupancyStateFromBookings([room]);
+      return normalizedRoom;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -179,50 +312,165 @@ export class AdminService {
     }
   }
 
-  async getAdminBookings() {
-    const bookings = await this.prisma.booking.findMany({
-      include: {
-        user: true,
-        room: { select: this.roomSafeSelect },
-        documents: true,
-        statusHistory: { orderBy: { createdAt: "desc" } },
+  async getAmenities() {
+    return this.prisma.amenity.findMany({
+      select: {
+        id: true,
+        name: true,
       },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return bookings.map((booking) => {
-      const bookingSource = this.normalizeBookingSource(booking.bookingSource);
-      return {
-        ...booking,
-        bookingSource,
-        brokerName: this.normalizeBrokerName(bookingSource, booking.brokerName),
-      };
+      orderBy: {
+        name: "asc",
+      },
     });
   }
 
-  async getAllTenants() {
-    const approvedBookings = await this.prisma.booking.findMany({
-      where: { status: { in: this.activeTenantBookingStatuses } },
-      include: { user: true, room: { select: this.roomSafeSelect } },
-      orderBy: { createdAt: "desc" },
+  async createAmenity(name: string) {
+    const normalizedName = String(name || "").trim().replace(/\s+/g, " ");
+    if (!normalizedName) {
+      throw new BadRequestException("Amenity name is required");
+    }
+
+    try {
+      return await this.prisma.amenity.create({
+        data: { name: normalizedName },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new BadRequestException("Amenity already exists");
+      }
+      throw error;
+    }
+  }
+
+  async deleteAmenity(amenityId: string) {
+    const normalizedAmenityId = String(amenityId || "").trim();
+    if (!normalizedAmenityId) {
+      throw new BadRequestException("Amenity ID is required");
+    }
+
+    const existingAmenity = await this.prisma.amenity.findUnique({
+      where: { id: normalizedAmenityId },
+      select: { id: true, name: true },
     });
 
-    return approvedBookings.map((booking) => ({
-      id: booking.user.id,
-      bookingId: booking.id,
-      userId: booking.user.id,
-      name: [booking.user.firstName, booking.user.lastName]
-        .filter(Boolean)
-        .join(" ")
-        .trim(),
-      phone: booking.user.phone,
-      email: booking.user.email,
-      room: booking.room,
-      moveInDate: booking.moveInDate,
-      rent: booking.room.rent,
-      status: booking.status,
-      user: booking.user,
-    }));
+    if (!existingAmenity) {
+      throw new NotFoundException("Amenity not found");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.roomAmenity.deleteMany({
+        where: { amenityId: normalizedAmenityId },
+      });
+
+      await tx.amenity.delete({
+        where: { id: normalizedAmenityId },
+      });
+    });
+
+    return {
+      success: true,
+      message: `Amenity "${existingAmenity.name}" deleted`,
+    };
+  }
+
+  async getAdminBookings() {
+    console.log("🔍 getAdminBookings: Starting query...");
+    try {
+      const bookings = await this.prisma.booking.findMany({
+        include: {
+          user: true,
+          room: { select: this.roomSafeSelect },
+          documents: true,
+          statusHistory: { orderBy: { createdAt: "desc" } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      console.log("✅ getAdminBookings: Found", bookings.length, "bookings");
+
+      return bookings.map((booking) => {
+        const bookingSource = this.normalizeBookingSource(booking.bookingSource);
+        const derivedRoomOccupancy = booking.room
+          ? this.deriveRoomOccupancyState(
+              booking.room.occupiedUntil,
+              booking.room.status,
+            )
+          : null;
+        return {
+          ...booking,
+          room: booking.room
+            ? {
+                ...booking.room,
+                status: derivedRoomOccupancy?.status ?? booking.room.status,
+                isAvailable:
+                  derivedRoomOccupancy?.isAvailable ?? booking.room.isAvailable,
+              }
+            : booking.room,
+          bookingSource,
+          brokerName: this.normalizeBrokerName(bookingSource, booking.brokerName),
+        };
+      });
+    } catch (error) {
+      console.error("❌ getAdminBookings ERROR:", error);
+      throw error;
+    }
+  }
+
+  async getAllTenants() {
+    console.log("🔍 getAllTenants: Starting query...");
+    try {
+      const approvedBookings = await this.prisma.booking.findMany({
+        where: { status: { in: this.activeTenantBookingStatuses } },
+        include: { user: true, room: { select: this.roomSafeSelect } },
+        orderBy: { createdAt: "desc" },
+      });
+      console.log("✅ getAllTenants: Found", approvedBookings.length, "tenants");
+
+      return approvedBookings.map((booking) => {
+        const bookingSource = this.normalizeBookingSource(booking.bookingSource);
+        const brokerName = this.normalizeBrokerName(bookingSource, booking.brokerName);
+        const derivedRoomOccupancy = booking.room
+          ? this.deriveRoomOccupancyState(
+              booking.room.occupiedUntil,
+              booking.room.status,
+            )
+          : null;
+        return {
+          id: booking.user.id,
+          bookingId: booking.id,
+          userId: booking.user.id,
+          name: [booking.user.firstName, booking.user.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim(),
+          phone: booking.user.phone,
+          email: booking.user.email,
+          room: booking.room
+            ? {
+                ...booking.room,
+                status: derivedRoomOccupancy?.status ?? booking.room.status,
+                isAvailable:
+                  derivedRoomOccupancy?.isAvailable ?? booking.room.isAvailable,
+              }
+            : booking.room,
+          moveInDate: booking.moveInDate,
+          rent: booking.room.rent,
+          status: booking.status,
+          user: booking.user,
+          bookingSource,
+          brokerName,
+        };
+      });
+    } catch (error) {
+      console.error("❌ getAllTenants ERROR:", error);
+      throw error;
+    }
   }
 
   async getTenantById(tenantId: string) {
@@ -355,6 +603,413 @@ export class AdminService {
 
       return { success: true };
     });
+  }
+
+  async updateTenant(
+    userId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      updateRoomId?: string;
+      newRoomId?: string;
+      roomChangeDate?: string;
+      extendOccupiedUntil?: string;
+      newRent?: number;
+      bookingSource?: string;
+      brokerName?: string;
+    },
+  ) {
+    const normalizedNewRent =
+      data.newRent === undefined ? undefined : Number(data.newRent);
+    if (
+      normalizedNewRent !== undefined &&
+      (!Number.isFinite(normalizedNewRent) || normalizedNewRent <= 0)
+    ) {
+      throw new BadRequestException("Rent must be greater than 0");
+    }
+
+    const requestedRoomId = String(
+      data.updateRoomId ?? data.newRoomId ?? "",
+    ).trim();
+    const parsedRoomChangeDate = this.parseDateInput(
+      data.roomChangeDate,
+      "roomChangeDate",
+    );
+    const parsedExtendOccupiedUntil = this.parseDateInput(
+      data.extendOccupiedUntil,
+      "extendOccupiedUntil",
+    );
+
+    console.log("UPDATE TENANT INPUT:", {
+      userId,
+      ...data,
+      requestedRoomId,
+      parsedRoomChangeDate,
+      parsedExtendOccupiedUntil,
+    });
+
+    try {
+      const booking = await this.prisma.booking.findFirst({
+        where: {
+          userId,
+          status: { in: this.activeTenantBookingStatuses },
+        },
+        include: {
+          room: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              floor: true,
+              area: true,
+              rent: true,
+              deposit: true,
+              status: true,
+              isAvailable: true,
+              occupiedFrom: true,
+              occupiedUntil: true,
+              availableAt: true,
+              videoUrl: true,
+            },
+          },
+          user: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!booking) {
+        throw new NotFoundException("Active tenant booking not found");
+      }
+
+      const currentRoomId = booking.roomId;
+      if (!currentRoomId) {
+        throw new BadRequestException("Current booking has no room assigned");
+      }
+
+      const targetRoomId = requestedRoomId || undefined;
+      const isRoomChangeRequested =
+        !!targetRoomId && targetRoomId !== currentRoomId;
+      const todayUtc = this.toStartOfUtcDay(new Date());
+
+      if (isRoomChangeRequested && !parsedRoomChangeDate) {
+        throw new BadRequestException(
+          "roomChangeDate is required when assigning a different room",
+        );
+      }
+
+      await this.ensureRoomTransfersTable();
+
+      const transactionResult = await this.prisma.$transaction(async (tx) => {
+
+        // STEP 1: Update user details
+        if (
+          data.firstName !== undefined ||
+          data.lastName !== undefined ||
+          data.phone !== undefined
+        ) {
+          const userUpdate: any = {};
+          if (data.firstName !== undefined) userUpdate.firstName = data.firstName;
+          if (data.lastName !== undefined) userUpdate.lastName = data.lastName;
+
+          if (data.phone !== undefined) {
+            const existingUser = await tx.user.findFirst({
+              where: {
+                phone: data.phone,
+                NOT: { id: userId },
+              },
+            });
+
+            if (existingUser) {
+              throw new BadRequestException(
+                "Phone number is already in use by another user",
+              );
+            }
+            userUpdate.phone = data.phone;
+          }
+
+          await tx.user.update({
+            where: { id: userId },
+            data: userUpdate,
+          });
+        }
+
+        // STEP 1B: Update booking source (broker/walkin)
+        if (data.bookingSource !== undefined) {
+          const normalizedSource = this.normalizeBookingSource(
+            data.bookingSource as BookingSource || null
+          );
+          const normalizedBrokerName = this.normalizeBrokerName(
+            normalizedSource,
+            data.brokerName
+          );
+          
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: {
+              bookingSource: normalizedSource,
+              brokerName: normalizedBrokerName,
+            },
+          });
+        }
+
+        // STEP 2: Extend occupied-until date (optional)
+        const currentOccupiedUntil =
+          booking.moveOutDate ??
+          booking.endDate ??
+          booking.room?.occupiedUntil ??
+          null;
+        const newDate = parsedExtendOccupiedUntil ?? currentOccupiedUntil;
+        let finalMoveOutDate = newDate;
+
+        if (parsedExtendOccupiedUntil !== undefined) {
+          const derivedCurrentRoomOccupancy = this.deriveRoomOccupancyState(
+            newDate,
+          );
+
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: {
+              moveOutDate: newDate ?? null,
+              endDate: newDate ?? null,
+            },
+          });
+
+          await tx.room.update({
+            where: { id: currentRoomId },
+            data: {
+              status: derivedCurrentRoomOccupancy.status,
+              isAvailable: derivedCurrentRoomOccupancy.isAvailable,
+              occupiedUntil: newDate ?? null,
+            },
+          });
+        }
+
+        // STEP 3: Change room (immediate or scheduled)
+        if (isRoomChangeRequested && targetRoomId && parsedRoomChangeDate) {
+          const moveDateUtc = this.toStartOfUtcDay(parsedRoomChangeDate);
+          if (moveDateUtc < todayUtc) {
+            throw new BadRequestException("roomChangeDate cannot be in the past");
+          }
+
+          const targetRoom = await tx.room.findUnique({
+            where: { id: targetRoomId },
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              isAvailable: true,
+              occupiedUntil: true,
+            },
+          });
+
+          if (!targetRoom) {
+            throw new NotFoundException("Target room not found");
+          }
+
+          const targetStatus = String(targetRoom.status || "").toUpperCase();
+          const targetOccupiedUntil = targetRoom.occupiedUntil
+            ? this.toStartOfUtcDay(new Date(targetRoom.occupiedUntil))
+            : null;
+
+          if (targetStatus === "OCCUPIED") {
+            if (!targetOccupiedUntil) {
+              throw new BadRequestException(
+                "Target room is occupied but has no occupied-until date configured",
+              );
+            }
+            if (moveDateUtc <= targetOccupiedUntil) {
+              throw new BadRequestException(
+                `Target room is occupied until ${targetOccupiedUntil.toISOString().split("T")[0]}. Choose a later move date.`,
+              );
+            }
+          } else if (targetStatus === "RESERVED") {
+            throw new BadRequestException(
+              "Target room is reserved. Please pick another room.",
+            );
+          }
+
+          const conflictingTransfers = await tx.$queryRaw<
+            Array<{ id: bigint }>
+          >`
+            SELECT id
+            FROM room_transfers
+            WHERE to_room_id = ${targetRoomId}
+              AND status = 'PENDING'
+            LIMIT 1
+          `;
+
+          if (conflictingTransfers.length > 0) {
+            throw new BadRequestException(
+              "Another pending future transfer is already assigned to this room",
+            );
+          }
+
+          const isImmediateTransfer = moveDateUtc <= todayUtc;
+
+          if (isImmediateTransfer) {
+            await tx.room.update({
+              where: { id: currentRoomId },
+              data: {
+                status: "AVAILABLE",
+                isAvailable: true,
+                occupiedFrom: null,
+                occupiedUntil: null,
+              },
+            });
+
+            await tx.room.update({
+              where: { id: targetRoomId },
+              data: {
+                status: "OCCUPIED",
+                isAvailable: false,
+                occupiedFrom: parsedRoomChangeDate,
+                occupiedUntil: finalMoveOutDate,
+                availableAt: null,
+              },
+            });
+
+            await tx.booking.update({
+              where: { id: booking.id },
+              data: {
+                roomId: targetRoomId,
+                moveInDate: parsedRoomChangeDate,
+                startDate: parsedRoomChangeDate,
+                moveOutDate: finalMoveOutDate,
+                endDate: finalMoveOutDate,
+              },
+            });
+
+            await tx.$executeRaw`
+              DELETE FROM room_transfers
+              WHERE booking_id = ${booking.id}
+                AND status = 'PENDING'
+            `;
+          } else {
+            await tx.$executeRaw`
+              DELETE FROM room_transfers
+              WHERE booking_id = ${booking.id}
+                AND status = 'PENDING'
+            `;
+
+            await tx.$executeRaw`
+              INSERT INTO room_transfers
+                (booking_id, user_id, from_room_id, to_room_id, effective_date, desired_move_out_date, status, created_at, updated_at)
+              VALUES
+                (${booking.id}, ${userId}, ${currentRoomId}, ${targetRoomId}, ${parsedRoomChangeDate}, ${finalMoveOutDate}, 'PENDING', NOW(), NOW())
+            `;
+
+            await tx.room.update({
+              where: { id: currentRoomId },
+              data: {
+                status: "OCCUPIED",
+                isAvailable: false,
+                occupiedUntil: parsedRoomChangeDate,
+              },
+            });
+
+            if (targetStatus === "AVAILABLE") {
+              await tx.room.update({
+                where: { id: targetRoomId },
+                data: {
+                  status: "RESERVED",
+                  isAvailable: false,
+                  availableAt: parsedRoomChangeDate,
+                },
+              });
+            }
+          }
+        }
+
+        // STEP 4: Update rent (optional)
+        if (normalizedNewRent !== undefined) {
+          const rentRoomId =
+            isRoomChangeRequested && targetRoomId ? targetRoomId : currentRoomId;
+          await tx.room.update({
+            where: { id: rentRoomId },
+            data: { rent: normalizedNewRent },
+          });
+        }
+
+        return {
+          bookingId: booking.id,
+        };
+      }, {
+        maxWait: 10000,
+        timeout: 20000,
+      });
+
+      // Fetch response data after commit to keep transaction short and avoid timeout.
+      const [updatedUser, updatedBooking, pendingTransfers] = await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+        }),
+        this.prisma.booking.findUnique({
+          where: { id: transactionResult.bookingId },
+          include: {
+            room: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                floor: true,
+                area: true,
+                rent: true,
+                deposit: true,
+                status: true,
+                isAvailable: true,
+                occupiedFrom: true,
+                occupiedUntil: true,
+                availableAt: true,
+                videoUrl: true,
+              },
+            },
+          },
+        }),
+        this.prisma.$queryRaw<
+          Array<{
+            id: bigint;
+            booking_id: string;
+            from_room_id: string;
+            to_room_id: string;
+            effective_date: Date;
+            status: string;
+          }>
+        >`
+          SELECT id, booking_id, from_room_id, to_room_id, effective_date, status
+          FROM room_transfers
+          WHERE booking_id = ${transactionResult.bookingId}
+            AND status = 'PENDING'
+          ORDER BY effective_date ASC
+          LIMIT 1
+        `,
+      ]);
+
+      const scheduledTransfer = pendingTransfers[0]
+        ? {
+            id: String(pendingTransfers[0].id),
+            bookingId: pendingTransfers[0].booking_id,
+            fromRoomId: pendingTransfers[0].from_room_id,
+            toRoomId: pendingTransfers[0].to_room_id,
+            effectiveDate: pendingTransfers[0].effective_date,
+            status: pendingTransfers[0].status,
+          }
+        : null;
+
+      return {
+        success: true,
+        user: updatedUser,
+        room: updatedBooking?.room,
+        booking: updatedBooking,
+        scheduledTransfer,
+        message: scheduledTransfer
+          ? "Tenant updated. Room transfer has been scheduled."
+          : "Tenant updated successfully",
+      };
+    } catch (error) {
+      console.error("REAL UPDATE TENANT ERROR:", error);
+      throw error;
+    }
   }
 
   async getAdminPayments() {

@@ -1,11 +1,13 @@
 import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "@/prisma/prisma.service";
-import { SignUpDto, SignInDto, RefreshTokenDto } from "./dto/auth.dto";
+import { SignUpDto, SignInDto, RefreshTokenDto, SetDobDto } from "./dto/auth.dto";
 export declare class AuthService {
     private prisma;
     private jwtService;
     private readonly logger;
     constructor(prisma: PrismaService, jwtService: JwtService);
+    private normalizeDobInput;
+    private toIsoDateKey;
     signUp(signUpDto: SignUpDto): Promise<{
         message: string;
         accessToken: string;
@@ -13,9 +15,18 @@ export declare class AuthService {
         user: any;
     }>;
     signIn(signInDto: SignInDto): Promise<{
+        message: string;
+        code: string;
+    } | {
         accessToken: string;
         refreshToken: string;
         user: any;
+        message?: undefined;
+        code?: undefined;
+    }>;
+    setDob(setDobDto: SetDobDto): Promise<{
+        message: string;
+        code: string;
     }>;
     refreshTokens(refreshTokenDto: RefreshTokenDto): Promise<{
         accessToken: string;

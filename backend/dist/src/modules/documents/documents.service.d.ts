@@ -5,12 +5,13 @@ export declare class DocumentsService {
     private mapDocumentType;
     findAll(): Promise<({
         user: {
+            dob: Date | null;
             phone: string;
             email: string | null;
-            password: string;
             firstName: string;
             lastName: string;
             id: string;
+            password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             isActive: boolean;
             isApproved: boolean;
@@ -30,12 +31,12 @@ export declare class DocumentsService {
                 deletedAt: Date | null;
                 name: string;
                 description: string | null;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 type: import(".prisma/client").$Enums.RoomType;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
@@ -51,8 +52,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             userId: string;
             expiresAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -67,8 +68,8 @@ export declare class DocumentsService {
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        type: import(".prisma/client").$Enums.DocumentType;
         bookingId: string | null;
         fileUrl: string;
         fileName: string | null;
@@ -90,8 +91,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             userId: string;
             expiresAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -106,8 +107,8 @@ export declare class DocumentsService {
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        type: import(".prisma/client").$Enums.DocumentType;
         bookingId: string | null;
         fileUrl: string;
         fileName: string | null;
@@ -121,12 +122,13 @@ export declare class DocumentsService {
     })[]>;
     findOne(id: string): Promise<{
         user: {
+            dob: Date | null;
             phone: string;
             email: string | null;
-            password: string;
             firstName: string;
             lastName: string;
             id: string;
+            password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             isActive: boolean;
             isApproved: boolean;
@@ -147,8 +149,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             userId: string;
             expiresAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -163,8 +165,8 @@ export declare class DocumentsService {
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        type: import(".prisma/client").$Enums.DocumentType;
         bookingId: string | null;
         fileUrl: string;
         fileName: string | null;
@@ -191,8 +193,8 @@ export declare class DocumentsService {
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        type: import(".prisma/client").$Enums.DocumentType;
         bookingId: string | null;
         fileUrl: string;
         fileName: string | null;
@@ -210,8 +212,8 @@ export declare class DocumentsService {
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        type: import(".prisma/client").$Enums.DocumentType;
         bookingId: string | null;
         fileUrl: string;
         fileName: string | null;
@@ -225,12 +227,13 @@ export declare class DocumentsService {
     }>;
     findPendingDocuments(): Promise<({
         user: {
+            dob: Date | null;
             phone: string;
             email: string | null;
-            password: string;
             firstName: string;
             lastName: string;
             id: string;
+            password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             isActive: boolean;
             isApproved: boolean;
@@ -251,8 +254,8 @@ export declare class DocumentsService {
             moveOutDate: Date | null;
             userId: string;
             expiresAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
             roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
@@ -267,8 +270,8 @@ export declare class DocumentsService {
         deletedAt: Date | null;
         name: string;
         userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        type: import(".prisma/client").$Enums.DocumentType;
         bookingId: string | null;
         fileUrl: string;
         fileName: string | null;

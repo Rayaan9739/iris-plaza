@@ -5,16 +5,13 @@ import {
   Logger,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
 import { PrismaService } from "@/prisma/prisma.service";
 import {
   SignUpDto,
   SignInDto,
   RefreshTokenDto,
+  SetDobDto,
 } from "./dto/auth.dto";
-
-// Constants for security
-const BCRYPT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService {
@@ -25,11 +22,32 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  private normalizeDobInput(value: string, fieldName = "dob") {
+    const parsed = new Date(String(value || "").trim());
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${fieldName} must be a valid ISO date`);
+    }
+    return new Date(
+      Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()),
+    );
+  }
+
+  private toIsoDateKey(value: Date | string | null | undefined) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    const year = parsed.getUTCFullYear();
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   /**
    * Sign up - Create new tenant account (active immediately)
    */
   async signUp(signUpDto: SignUpDto) {
-    const { phone, email, password, firstName, lastName } = signUpDto;
+    const { phone, email, firstName, lastName, dob } = signUpDto;
+    const normalizedDob = this.normalizeDobInput(dob, "dob");
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findFirst({
@@ -44,28 +62,34 @@ export class AuthService {
       );
     }
 
-    // Hash password with bcrypt (12 rounds)
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
     // Create user as ACTIVE immediately with provided details
     const user = await this.prisma.user.create({
       data: {
         phone,
         email,
-        password: hashedPassword,
+        // Legacy column kept for backward compatibility; auth no longer uses password.
+        password: "DOB_AUTH_DISABLED",
         firstName,
         lastName,
         role: "TENANT",
         isApproved: true,
         accountStatus: "ACTIVE",
         tenantProfile: {
-          create: {},
+          create: {
+            dateOfBirth: normalizedDob,
+          },
         },
       },
       include: {
         tenantProfile: true,
       },
     });
+
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET dob = ${normalizedDob}
+      WHERE id = ${user.id}
+    `;
 
     // Try to update tenant profile with identity details (if fields exist in DB)
     // This will be skipped if prisma client hasn't been regenerated
@@ -99,17 +123,18 @@ export class AuthService {
   }
 
   /**
-   * Sign in - Login with phone and password
+   * Sign in - Login with phone and DOB
    */
   async signIn(signInDto: SignInDto) {
-    const { phone, password } = signInDto;
+    const { phone, dob } = signInDto;
+    const normalizedDob = this.normalizeDobInput(dob, "dob");
 
     const user = await this.prisma.user.findUnique({
       where: { phone },
     });
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("Invalid phone or DOB");
     }
 
     // Check if account is suspended
@@ -122,10 +147,25 @@ export class AuthService {
       throw new UnauthorizedException("Account has been rejected");
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException("Invalid credentials");
+    const dobRows = await this.prisma.$queryRaw<Array<{ dob: Date | null }>>`
+      SELECT dob
+      FROM users
+      WHERE id = ${user.id}
+      LIMIT 1
+    `;
+    const storedDob = dobRows[0]?.dob ?? null;
+
+    if (!storedDob) {
+      return {
+        message: "Please set DOB to continue",
+        code: "DOB_REQUIRED",
+      };
+    }
+
+    const storedDobKey = this.toIsoDateKey(storedDob);
+    const inputDobKey = this.toIsoDateKey(normalizedDob);
+    if (!storedDobKey || !inputDobKey || storedDobKey !== inputDobKey) {
+      throw new UnauthorizedException("Invalid DOB");
     }
 
     // Generate tokens for active users
@@ -134,6 +174,34 @@ export class AuthService {
     return {
       user: this.sanitizeUser(user),
       ...tokens,
+    };
+  }
+
+  async setDob(setDobDto: SetDobDto) {
+    const normalizedPhone = String(setDobDto.phone || "").trim();
+    if (!normalizedPhone) {
+      throw new BadRequestException("phone is required");
+    }
+
+    const normalizedDob = this.normalizeDobInput(setDobDto.dob, "dob");
+    const user = await this.prisma.user.findUnique({
+      where: { phone: normalizedPhone },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException("User with this phone does not exist");
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET dob = ${normalizedDob}
+      WHERE id = ${user.id}
+    `;
+
+    return {
+      message: "DOB set successfully",
+      code: "DOB_SET",
     };
   }
 

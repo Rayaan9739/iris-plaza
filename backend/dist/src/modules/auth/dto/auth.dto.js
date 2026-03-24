@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RefreshTokenDto = exports.SignInDto = exports.SignUpDto = void 0;
+exports.SetDobDto = exports.RefreshTokenDto = exports.SignInDto = exports.SignUpDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class SignUpDto {
@@ -28,13 +28,6 @@ __decorate([
     __metadata("design:type", String)
 ], SignUpDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: "password123", minLength: 8, maxLength: 32 }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(8),
-    (0, class_validator_1.MaxLength)(32),
-    __metadata("design:type", String)
-], SignUpDto.prototype, "password", void 0);
-__decorate([
     (0, swagger_1.ApiProperty)({ example: "John" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
@@ -48,6 +41,14 @@ __decorate([
     (0, class_validator_1.MaxLength)(50),
     __metadata("design:type", String)
 ], SignUpDto.prototype, "lastName", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: "2001-08-15",
+        description: "Date of birth in ISO format (YYYY-MM-DD)",
+    }),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "dob", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: "John Smith" }),
     (0, class_validator_1.IsOptional)(),
@@ -100,11 +101,13 @@ __decorate([
     __metadata("design:type", String)
 ], SignInDto.prototype, "phone", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: "password123" }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, swagger_1.ApiProperty)({
+        example: "2001-08-15",
+        description: "Date of birth in ISO format (YYYY-MM-DD)",
+    }),
+    (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
-], SignInDto.prototype, "password", void 0);
+], SignInDto.prototype, "dob", void 0);
 class RefreshTokenDto {
 }
 exports.RefreshTokenDto = RefreshTokenDto;
@@ -114,4 +117,21 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RefreshTokenDto.prototype, "refreshToken", void 0);
+class SetDobDto {
+}
+exports.SetDobDto = SetDobDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "+1234567890" }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], SetDobDto.prototype, "phone", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: "2001-08-15",
+        description: "Date of birth in ISO format (YYYY-MM-DD)",
+    }),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], SetDobDto.prototype, "dob", void 0);
 //# sourceMappingURL=auth.dto.js.map

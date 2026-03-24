@@ -14,6 +14,14 @@ import { EventEmitterService } from "@/common/services/event-emitter.service";
 @Injectable()
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
+  private readonly conflictBookingStatuses = [
+    "PENDING",
+    "PENDING_APPROVAL",
+    "VERIFICATION_PENDING",
+    "APPROVED_PENDING_PAYMENT",
+    "APPROVED",
+    "RESERVED",
+  ] as const;
 
   constructor(
     private prisma: PrismaService,
@@ -55,6 +63,65 @@ export class BookingsService {
     return new Date(
       Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
     );
+  }
+
+  private getBookingWindow(booking: {
+    startDate?: Date | null;
+    moveInDate?: Date | null;
+    endDate?: Date | null;
+    moveOutDate?: Date | null;
+    checkoutDate?: Date | null;
+    createdAt?: Date | null;
+  }) {
+    const startCandidate =
+      booking.moveInDate ??
+      booking.startDate ??
+      booking.createdAt ??
+      null;
+    const endCandidate =
+      booking.moveOutDate ??
+      booking.endDate ??
+      booking.checkoutDate ??
+      null;
+
+    const normalizedStart =
+      startCandidate && !Number.isNaN(new Date(startCandidate).getTime())
+        ? this.toStartOfUtcDay(new Date(startCandidate))
+        : null;
+    const normalizedEnd =
+      endCandidate && !Number.isNaN(new Date(endCandidate).getTime())
+        ? this.toStartOfUtcDay(new Date(endCandidate))
+        : null;
+
+    return {
+      start: normalizedStart,
+      end: normalizedEnd,
+    };
+  }
+
+  private hasBookingOverlap(
+    booking: {
+      startDate?: Date | null;
+      moveInDate?: Date | null;
+      endDate?: Date | null;
+      moveOutDate?: Date | null;
+      checkoutDate?: Date | null;
+      createdAt?: Date | null;
+    },
+    requestedStart: Date,
+    requestedEnd: Date,
+  ) {
+    const { start, end } = this.getBookingWindow(booking);
+    if (!start) {
+      // Missing/invalid date window in an active booking should be treated as conflicting.
+      return true;
+    }
+
+    const effectiveEnd =
+      end ?? new Date("9999-12-31T00:00:00.000Z");
+
+    // Half-open interval overlap: [start, end) with [requestedStart, requestedEnd)
+    return start < requestedEnd && effectiveEnd > requestedStart;
   }
 
   private normalizeDateInputUtc(value: string, fieldName: string) {
@@ -277,17 +344,39 @@ export class BookingsService {
       throw new BadRequestException("User not found");
     }
 
-    // STEP 1: BLOCK USER-LEVEL BOOKING (prevent multi-room booking)
-    const existingUserBooking = await this.prisma.booking.findFirst({
+    // STEP 1: BLOCK USER-LEVEL CONFLICTS (prevent overlapping bookings)
+    const existingUserBookings = await this.prisma.booking.findMany({
       where: {
         userId,
+        deletedAt: null,
         status: {
-          in: ["PENDING_APPROVAL", "APPROVED"]
-        }
-      }
+          in: this.conflictBookingStatuses as any,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        startDate: true,
+        moveInDate: true,
+        endDate: true,
+        moveOutDate: true,
+        checkoutDate: true,
+        createdAt: true,
+      },
     });
-    
-    if (existingUserBooking) {
+
+    const userBookingConflict = existingUserBookings.find((booking) =>
+      this.hasBookingOverlap(
+        booking,
+        normalizedMoveInDate,
+        normalizedMoveOutDate,
+      ),
+    );
+
+    if (userBookingConflict) {
+      this.logger.warn(
+        `[BookingCreate] User booking conflict userId=${userId} bookingId=${userBookingConflict.id} status=${userBookingConflict.status}`,
+      );
       throw new BadRequestException(
         "You already have an active room or pending request"
       );
@@ -361,18 +450,39 @@ export class BookingsService {
       throw new BadRequestException("Room is not available for booking");
     }
 
-    // Check for existing active bookings (outside transaction)
-    const existingActiveBooking = await this.prisma.booking.findFirst({
+    // Check for existing active room bookings with overlapping date window.
+    const existingRoomBookings = await this.prisma.booking.findMany({
       where: {
         roomId: normalizedRoomId,
+        deletedAt: null,
         status: {
-          in: ["PENDING_APPROVAL", "APPROVED"] as any,
+          in: this.conflictBookingStatuses as any,
         },
       },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        startDate: true,
+        moveInDate: true,
+        endDate: true,
+        moveOutDate: true,
+        checkoutDate: true,
+        createdAt: true,
+      },
     });
 
+    const existingActiveBooking = existingRoomBookings.find((booking) =>
+      this.hasBookingOverlap(
+        booking,
+        normalizedMoveInDate,
+        normalizedMoveOutDate,
+      ),
+    );
+
     if (existingActiveBooking) {
+      this.logger.warn(
+        `[BookingCreate] Room booking conflict roomId=${normalizedRoomId} bookingId=${existingActiveBooking.id} status=${existingActiveBooking.status}`,
+      );
       throw new BadRequestException("Room already has an active booking request");
     }
 

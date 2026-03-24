@@ -16,11 +16,11 @@ const passport_local_1 = require("passport-local");
 const auth_service_1 = require("../auth.service");
 let LocalStrategy = class LocalStrategy extends (0, passport_1.PassportStrategy)(passport_local_1.Strategy) {
     constructor(authService) {
-        super({ usernameField: "phone" });
+        super({ usernameField: "phone", passwordField: "dob" });
         this.authService = authService;
     }
-    async validate(phone, password) {
-        const user = await this.authService.signIn({ phone, password });
+    async validate(phone, dob) {
+        const user = await this.authService.signIn({ phone, dob });
         if (!user) {
             throw new common_1.UnauthorizedException();
         }

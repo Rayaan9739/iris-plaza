@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
 import { EventEmitterService } from "@/common/services/event-emitter.service";
@@ -8,11 +9,17 @@ export declare class AdminService {
     private eventEmitter;
     private paymentsService;
     private readonly activeTenantBookingStatuses;
+    private roomTransfersTableReady;
     constructor(prisma: PrismaService, notificationsService: NotificationsService, eventEmitter: EventEmitterService, paymentsService: PaymentsService);
     private roomSafeSelect;
     private mapMaintenanceStatus;
     private normalizeBookingSource;
     private normalizeBrokerName;
+    private toStartOfUtcDay;
+    private deriveRoomOccupancyState;
+    private applyOccupancyStateFromBookings;
+    private parseDateInput;
+    private ensureRoomTransfersTable;
     getDashboardStats(): Promise<{
         totalRooms: number;
         availableRooms: number;
@@ -40,28 +47,29 @@ export declare class AdminService {
         };
     }>;
     getAdminRooms(): Promise<{
-        id: string;
-        type: import(".prisma/client").$Enums.RoomType;
-        createdAt: Date;
-        name: string;
         deletedAt: Date | null;
         status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
+        id: string;
+        type: import(".prisma/client").$Enums.RoomType;
         description: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        name: string;
         floor: number;
         area: number;
-        rent: import("@prisma/client/runtime/library").Decimal;
-        deposit: import("@prisma/client/runtime/library").Decimal;
+        rent: Prisma.Decimal;
+        deposit: Prisma.Decimal;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
+        availableAt: Date | null;
         videoUrl: string | null;
         amenities: ({
             amenity: {
                 id: string;
+                description: string | null;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -71,8 +79,8 @@ export declare class AdminService {
         })[];
         images: {
             id: string;
-            createdAt: Date;
             roomId: string;
+            createdAt: Date;
             url: string;
             caption: string | null;
             isPrimary: boolean;
@@ -80,9 +88,9 @@ export declare class AdminService {
         }[];
         media: {
             id: string;
+            roomId: string;
             type: string;
             createdAt: Date;
-            roomId: string;
             url: string;
         }[];
     }[]>;
@@ -90,9 +98,9 @@ export declare class AdminService {
         amenities: ({
             amenity: {
                 id: string;
+                description: string | null;
                 createdAt: Date;
                 name: string;
-                description: string | null;
                 icon: string | null;
             };
         } & {
@@ -102,8 +110,8 @@ export declare class AdminService {
         })[];
         images: {
             id: string;
-            createdAt: Date;
             roomId: string;
+            createdAt: Date;
             url: string;
             caption: string | null;
             isPrimary: boolean;
@@ -111,41 +119,102 @@ export declare class AdminService {
         }[];
         media: {
             id: string;
+            roomId: string;
             type: string;
             createdAt: Date;
-            roomId: string;
             url: string;
         }[];
     } & {
-        id: string;
-        type: import(".prisma/client").$Enums.RoomType;
-        createdAt: Date;
-        name: string;
         deletedAt: Date | null;
         status: import(".prisma/client").$Enums.RoomStatus;
         isAvailable: boolean;
+        id: string;
+        type: import(".prisma/client").$Enums.RoomType;
         description: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        name: string;
         floor: number;
         area: number;
-        rent: import("@prisma/client/runtime/library").Decimal;
-        deposit: import("@prisma/client/runtime/library").Decimal;
+        rent: Prisma.Decimal;
+        deposit: Prisma.Decimal;
         occupiedFrom: Date | null;
         occupiedUntil: Date | null;
         availableAt: Date | null;
         videoUrl: string | null;
     }>;
+    getAmenities(): Promise<{
+        id: string;
+        name: string;
+    }[]>;
+    createAmenity(name: string): Promise<{
+        id: string;
+        name: string;
+    }>;
+    deleteAmenity(amenityId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
     getAdminBookings(): Promise<{
+        room: {
+            status: import(".prisma/client").$Enums.RoomStatus;
+            isAvailable: boolean;
+            deletedAt: Date | null;
+            id: string;
+            type: import(".prisma/client").$Enums.RoomType;
+            description: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            floor: number;
+            area: number;
+            rent: Prisma.Decimal;
+            deposit: Prisma.Decimal;
+            occupiedFrom: Date | null;
+            occupiedUntil: Date | null;
+            availableAt: Date | null;
+            videoUrl: string | null;
+            amenities: ({
+                amenity: {
+                    id: string;
+                    description: string | null;
+                    createdAt: Date;
+                    name: string;
+                    icon: string | null;
+                };
+            } & {
+                id: string;
+                roomId: string;
+                amenityId: string;
+            })[];
+            images: {
+                id: string;
+                roomId: string;
+                createdAt: Date;
+                url: string;
+                caption: string | null;
+                isPrimary: boolean;
+                order: number;
+            }[];
+            media: {
+                id: string;
+                roomId: string;
+                type: string;
+                createdAt: Date;
+                url: string;
+            }[];
+        };
         bookingSource: import(".prisma/client").$Enums.BookingSource;
         brokerName: string | null;
         user: {
+            deletedAt: Date | null;
             id: string;
             createdAt: Date;
-            deletedAt: Date | null;
             updatedAt: Date;
             email: string | null;
             phone: string;
-            password: string;
+            password: string | null;
+            dob: Date | null;
             role: import(".prisma/client").$Enums.UserRole;
             firstName: string;
             lastName: string;
@@ -156,70 +225,23 @@ export declare class AdminService {
             isPhoneVerified: boolean;
             emailVerifyToken: string | null;
         };
-        room: {
-            id: string;
-            type: import(".prisma/client").$Enums.RoomType;
-            createdAt: Date;
-            name: string;
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.RoomStatus;
-            isAvailable: boolean;
-            description: string | null;
-            updatedAt: Date;
-            floor: number;
-            area: number;
-            rent: import("@prisma/client/runtime/library").Decimal;
-            deposit: import("@prisma/client/runtime/library").Decimal;
-            occupiedFrom: Date | null;
-            occupiedUntil: Date | null;
-            videoUrl: string | null;
-            amenities: ({
-                amenity: {
-                    id: string;
-                    createdAt: Date;
-                    name: string;
-                    description: string | null;
-                    icon: string | null;
-                };
-            } & {
-                id: string;
-                roomId: string;
-                amenityId: string;
-            })[];
-            images: {
-                id: string;
-                createdAt: Date;
-                roomId: string;
-                url: string;
-                caption: string | null;
-                isPrimary: boolean;
-                order: number;
-            }[];
-            media: {
-                id: string;
-                type: string;
-                createdAt: Date;
-                roomId: string;
-                url: string;
-            }[];
-        };
         statusHistory: {
-            id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.BookingStatus;
+            id: string;
             bookingId: string;
+            createdAt: Date;
             comment: string | null;
             changedBy: string | null;
         }[];
         documents: {
-            id: string;
-            userId: string;
-            type: import(".prisma/client").$Enums.DocumentType;
-            name: string;
             deletedAt: Date | null;
             status: import(".prisma/client").$Enums.DocumentStatus;
+            id: string;
+            userId: string;
             bookingId: string | null;
+            type: import(".prisma/client").$Enums.DocumentType;
             updatedAt: Date;
+            name: string;
             fileUrl: string;
             fileName: string | null;
             fileSize: number | null;
@@ -230,19 +252,19 @@ export declare class AdminService {
             uploadedAt: Date;
             reviewedAt: Date | null;
         }[];
-        id: string;
-        userId: string;
-        createdAt: Date;
         deletedAt: Date | null;
         status: import(".prisma/client").$Enums.BookingStatus;
+        id: string;
+        userId: string;
         roomId: string;
+        createdAt: Date;
         updatedAt: Date;
         startDate: Date;
         endDate: Date | null;
         moveInDate: Date | null;
         moveOutDate: Date | null;
         checkoutDate: Date | null;
-        bookingFee: import("@prisma/client/runtime/library").Decimal | null;
+        bookingFee: Prisma.Decimal | null;
         bookingFeePaid: boolean;
         expiresAt: Date | null;
     }[]>;
@@ -254,28 +276,29 @@ export declare class AdminService {
         phone: string;
         email: string | null;
         room: {
-            id: string;
-            type: import(".prisma/client").$Enums.RoomType;
-            createdAt: Date;
-            name: string;
-            deletedAt: Date | null;
             status: import(".prisma/client").$Enums.RoomStatus;
             isAvailable: boolean;
+            deletedAt: Date | null;
+            id: string;
+            type: import(".prisma/client").$Enums.RoomType;
             description: string | null;
+            createdAt: Date;
             updatedAt: Date;
+            name: string;
             floor: number;
             area: number;
-            rent: import("@prisma/client/runtime/library").Decimal;
-            deposit: import("@prisma/client/runtime/library").Decimal;
+            rent: Prisma.Decimal;
+            deposit: Prisma.Decimal;
             occupiedFrom: Date | null;
             occupiedUntil: Date | null;
+            availableAt: Date | null;
             videoUrl: string | null;
             amenities: ({
                 amenity: {
                     id: string;
+                    description: string | null;
                     createdAt: Date;
                     name: string;
-                    description: string | null;
                     icon: string | null;
                 };
             } & {
@@ -285,8 +308,8 @@ export declare class AdminService {
             })[];
             images: {
                 id: string;
-                createdAt: Date;
                 roomId: string;
+                createdAt: Date;
                 url: string;
                 caption: string | null;
                 isPrimary: boolean;
@@ -294,23 +317,24 @@ export declare class AdminService {
             }[];
             media: {
                 id: string;
+                roomId: string;
                 type: string;
                 createdAt: Date;
-                roomId: string;
                 url: string;
             }[];
         };
         moveInDate: Date | null;
-        rent: import("@prisma/client/runtime/library").Decimal;
+        rent: Prisma.Decimal;
         status: import(".prisma/client").$Enums.BookingStatus;
         user: {
+            deletedAt: Date | null;
             id: string;
             createdAt: Date;
-            deletedAt: Date | null;
             updatedAt: Date;
             email: string | null;
             phone: string;
-            password: string;
+            password: string | null;
+            dob: Date | null;
             role: import(".prisma/client").$Enums.UserRole;
             firstName: string;
             lastName: string;
@@ -321,6 +345,8 @@ export declare class AdminService {
             isPhoneVerified: boolean;
             emailVerifyToken: string | null;
         };
+        bookingSource: import(".prisma/client").$Enums.BookingSource;
+        brokerName: string | null;
     }[]>;
     getTenantById(tenantId: string): Promise<{
         id: string;
@@ -342,8 +368,8 @@ export declare class AdminService {
             id: string;
             name: string;
             floor: number;
-            rent: import("@prisma/client/runtime/library").Decimal;
-            deposit: import("@prisma/client/runtime/library").Decimal;
+            rent: Prisma.Decimal;
+            deposit: Prisma.Decimal;
         };
         agreement: {
             id: string;
@@ -351,8 +377,8 @@ export declare class AdminService {
             status: import(".prisma/client").$Enums.AgreementStatus;
             startDate: Date;
             endDate: Date;
-            monthlyRent: import("@prisma/client/runtime/library").Decimal;
-            securityDeposit: import("@prisma/client/runtime/library").Decimal;
+            monthlyRent: Prisma.Decimal;
+            securityDeposit: Prisma.Decimal;
         } | null;
         documents: {
             id: string;
@@ -363,17 +389,178 @@ export declare class AdminService {
     removeTenant(userId: string): Promise<{
         success: boolean;
     }>;
-    getAdminPayments(): Promise<any[]>;
-    markPaymentAsPaid(id: string, amountReceived?: number, note?: string, paymentMethod?: string): Promise<any>;
-    getAdminDocuments(): Promise<({
+    updateTenant(userId: string, data: {
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+        updateRoomId?: string;
+        newRoomId?: string;
+        roomChangeDate?: string;
+        extendOccupiedUntil?: string;
+        newRent?: number;
+        bookingSource?: string;
+        brokerName?: string;
+    }): Promise<{
+        success: boolean;
         user: {
+            deletedAt: Date | null;
             id: string;
             createdAt: Date;
-            deletedAt: Date | null;
             updatedAt: Date;
             email: string | null;
             phone: string;
-            password: string;
+            password: string | null;
+            dob: Date | null;
+            role: import(".prisma/client").$Enums.UserRole;
+            firstName: string;
+            lastName: string;
+            isActive: boolean;
+            isApproved: boolean;
+            accountStatus: import(".prisma/client").$Enums.AccountStatus;
+            isEmailVerified: boolean;
+            isPhoneVerified: boolean;
+            emailVerifyToken: string | null;
+        } | null;
+        room: {
+            status: import(".prisma/client").$Enums.RoomStatus;
+            isAvailable: boolean;
+            id: string;
+            type: import(".prisma/client").$Enums.RoomType;
+            name: string;
+            floor: number;
+            area: number;
+            rent: Prisma.Decimal;
+            deposit: Prisma.Decimal;
+            occupiedFrom: Date | null;
+            occupiedUntil: Date | null;
+            availableAt: Date | null;
+            videoUrl: string | null;
+        } | undefined;
+        booking: ({
+            room: {
+                status: import(".prisma/client").$Enums.RoomStatus;
+                isAvailable: boolean;
+                id: string;
+                type: import(".prisma/client").$Enums.RoomType;
+                name: string;
+                floor: number;
+                area: number;
+                rent: Prisma.Decimal;
+                deposit: Prisma.Decimal;
+                occupiedFrom: Date | null;
+                occupiedUntil: Date | null;
+                availableAt: Date | null;
+                videoUrl: string | null;
+            };
+        } & {
+            deletedAt: Date | null;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            id: string;
+            userId: string;
+            roomId: string;
+            createdAt: Date;
+            updatedAt: Date;
+            startDate: Date;
+            endDate: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
+            checkoutDate: Date | null;
+            bookingFee: Prisma.Decimal | null;
+            bookingFeePaid: boolean;
+            expiresAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
+        }) | null;
+        scheduledTransfer: {
+            id: string;
+            bookingId: string;
+            fromRoomId: string;
+            toRoomId: string;
+            effectiveDate: Date;
+            status: string;
+        } | null;
+        message: string;
+    }>;
+    getAdminPayments(): Promise<any[]>;
+    markPaymentAsPaid(id: string, amountReceived?: number, note?: string, paymentMethod?: string): Promise<any>;
+    getAdminDocuments(): Promise<({
+        booking: ({
+            room: {
+                deletedAt: Date | null;
+                status: import(".prisma/client").$Enums.RoomStatus;
+                isAvailable: boolean;
+                id: string;
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                floor: number;
+                area: number;
+                rent: Prisma.Decimal;
+                deposit: Prisma.Decimal;
+                occupiedFrom: Date | null;
+                occupiedUntil: Date | null;
+                availableAt: Date | null;
+                videoUrl: string | null;
+                amenities: ({
+                    amenity: {
+                        id: string;
+                        description: string | null;
+                        createdAt: Date;
+                        name: string;
+                        icon: string | null;
+                    };
+                } & {
+                    id: string;
+                    roomId: string;
+                    amenityId: string;
+                })[];
+                images: {
+                    id: string;
+                    roomId: string;
+                    createdAt: Date;
+                    url: string;
+                    caption: string | null;
+                    isPrimary: boolean;
+                    order: number;
+                }[];
+                media: {
+                    id: string;
+                    roomId: string;
+                    type: string;
+                    createdAt: Date;
+                    url: string;
+                }[];
+            };
+        } & {
+            deletedAt: Date | null;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            id: string;
+            userId: string;
+            roomId: string;
+            createdAt: Date;
+            updatedAt: Date;
+            startDate: Date;
+            endDate: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
+            checkoutDate: Date | null;
+            bookingFee: Prisma.Decimal | null;
+            bookingFeePaid: boolean;
+            expiresAt: Date | null;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
+        }) | null;
+        user: {
+            deletedAt: Date | null;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            phone: string;
+            password: string | null;
+            dob: Date | null;
             role: import(".prisma/client").$Enums.UserRole;
             firstName: string;
             lastName: string;
@@ -384,82 +571,15 @@ export declare class AdminService {
             isPhoneVerified: boolean;
             emailVerifyToken: string | null;
         };
-        booking: ({
-            room: {
-                id: string;
-                type: import(".prisma/client").$Enums.RoomType;
-                createdAt: Date;
-                name: string;
-                deletedAt: Date | null;
-                status: import(".prisma/client").$Enums.RoomStatus;
-                isAvailable: boolean;
-                description: string | null;
-                updatedAt: Date;
-                floor: number;
-                area: number;
-                rent: import("@prisma/client/runtime/library").Decimal;
-                deposit: import("@prisma/client/runtime/library").Decimal;
-                occupiedFrom: Date | null;
-                occupiedUntil: Date | null;
-                videoUrl: string | null;
-                amenities: ({
-                    amenity: {
-                        id: string;
-                        createdAt: Date;
-                        name: string;
-                        description: string | null;
-                        icon: string | null;
-                    };
-                } & {
-                    id: string;
-                    roomId: string;
-                    amenityId: string;
-                })[];
-                images: {
-                    id: string;
-                    createdAt: Date;
-                    roomId: string;
-                    url: string;
-                    caption: string | null;
-                    isPrimary: boolean;
-                    order: number;
-                }[];
-                media: {
-                    id: string;
-                    type: string;
-                    createdAt: Date;
-                    roomId: string;
-                    url: string;
-                }[];
-            };
-        } & {
-            id: string;
-            userId: string;
-            createdAt: Date;
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            roomId: string;
-            updatedAt: Date;
-            startDate: Date;
-            endDate: Date | null;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
-            checkoutDate: Date | null;
-            bookingFee: import("@prisma/client/runtime/library").Decimal | null;
-            bookingFeePaid: boolean;
-            expiresAt: Date | null;
-            bookingSource: import(".prisma/client").$Enums.BookingSource;
-            brokerName: string | null;
-        }) | null;
     } & {
-        id: string;
-        userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
-        name: string;
         deletedAt: Date | null;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        id: string;
+        userId: string;
         bookingId: string | null;
+        type: import(".prisma/client").$Enums.DocumentType;
         updatedAt: Date;
+        name: string;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
@@ -471,14 +591,14 @@ export declare class AdminService {
         reviewedAt: Date | null;
     })[]>;
     approveDocument(id: string): Promise<{
-        id: string;
-        userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
-        name: string;
         deletedAt: Date | null;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        id: string;
+        userId: string;
         bookingId: string | null;
+        type: import(".prisma/client").$Enums.DocumentType;
         updatedAt: Date;
+        name: string;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
@@ -490,14 +610,14 @@ export declare class AdminService {
         reviewedAt: Date | null;
     }>;
     rejectDocument(id: string): Promise<{
-        id: string;
-        userId: string;
-        type: import(".prisma/client").$Enums.DocumentType;
-        name: string;
         deletedAt: Date | null;
         status: import(".prisma/client").$Enums.DocumentStatus;
+        id: string;
+        userId: string;
         bookingId: string | null;
+        type: import(".prisma/client").$Enums.DocumentType;
         updatedAt: Date;
+        name: string;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
@@ -512,14 +632,14 @@ export declare class AdminService {
     approveMaintenanceRequest(id: string, _amountToPayNow?: number): Promise<{
         status: string;
         id: string;
-        title: string;
-        createdAt: Date;
         tenantId: string;
         bookingId: string | null;
         description: string;
+        createdAt: Date;
         updatedAt: Date;
+        title: string;
         category: string;
-        requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
+        requestedAmount: Prisma.Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
         resolvedAt: Date | null;
         resolution: string | null;
@@ -527,28 +647,48 @@ export declare class AdminService {
     rejectMaintenanceRequest(id: string): Promise<{
         status: string;
         id: string;
-        title: string;
-        createdAt: Date;
         tenantId: string;
         bookingId: string | null;
         description: string;
+        createdAt: Date;
         updatedAt: Date;
+        title: string;
         category: string;
-        requestedAmount: import("@prisma/client/runtime/library").Decimal | null;
+        requestedAmount: Prisma.Decimal | null;
         priority: import(".prisma/client").$Enums.TicketPriority;
         resolvedAt: Date | null;
         resolution: string | null;
     }>;
     getPendingVerifications(): Promise<{
         documents: ({
+            booking: {
+                deletedAt: Date | null;
+                status: import(".prisma/client").$Enums.BookingStatus;
+                id: string;
+                userId: string;
+                roomId: string;
+                createdAt: Date;
+                updatedAt: Date;
+                startDate: Date;
+                endDate: Date | null;
+                moveInDate: Date | null;
+                moveOutDate: Date | null;
+                checkoutDate: Date | null;
+                bookingFee: Prisma.Decimal | null;
+                bookingFeePaid: boolean;
+                expiresAt: Date | null;
+                bookingSource: import(".prisma/client").$Enums.BookingSource;
+                brokerName: string | null;
+            } | null;
             user: {
+                deletedAt: Date | null;
                 id: string;
                 createdAt: Date;
-                deletedAt: Date | null;
                 updatedAt: Date;
                 email: string | null;
                 phone: string;
-                password: string;
+                password: string | null;
+                dob: Date | null;
                 role: import(".prisma/client").$Enums.UserRole;
                 firstName: string;
                 lastName: string;
@@ -559,34 +699,15 @@ export declare class AdminService {
                 isPhoneVerified: boolean;
                 emailVerifyToken: string | null;
             };
-            booking: {
-                id: string;
-                userId: string;
-                createdAt: Date;
-                deletedAt: Date | null;
-                status: import(".prisma/client").$Enums.BookingStatus;
-                roomId: string;
-                updatedAt: Date;
-                startDate: Date;
-                endDate: Date | null;
-                moveInDate: Date | null;
-                moveOutDate: Date | null;
-                checkoutDate: Date | null;
-                bookingFee: import("@prisma/client/runtime/library").Decimal | null;
-                bookingFeePaid: boolean;
-                expiresAt: Date | null;
-                bookingSource: import(".prisma/client").$Enums.BookingSource;
-                brokerName: string | null;
-            } | null;
         } & {
-            id: string;
-            userId: string;
-            type: import(".prisma/client").$Enums.DocumentType;
-            name: string;
             deletedAt: Date | null;
             status: import(".prisma/client").$Enums.DocumentStatus;
+            id: string;
+            userId: string;
             bookingId: string | null;
+            type: import(".prisma/client").$Enums.DocumentType;
             updatedAt: Date;
+            name: string;
             fileUrl: string;
             fileName: string | null;
             fileSize: number | null;
@@ -599,13 +720,14 @@ export declare class AdminService {
         })[];
         bookings: ({
             user: {
+                deletedAt: Date | null;
                 id: string;
                 createdAt: Date;
-                deletedAt: Date | null;
                 updatedAt: Date;
                 email: string | null;
                 phone: string;
-                password: string;
+                password: string | null;
+                dob: Date | null;
                 role: import(".prisma/client").$Enums.UserRole;
                 firstName: string;
                 lastName: string;
@@ -617,28 +739,29 @@ export declare class AdminService {
                 emailVerifyToken: string | null;
             };
             room: {
-                id: string;
-                type: import(".prisma/client").$Enums.RoomType;
-                createdAt: Date;
-                name: string;
                 deletedAt: Date | null;
                 status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
+                id: string;
+                type: import(".prisma/client").$Enums.RoomType;
                 description: string | null;
+                createdAt: Date;
                 updatedAt: Date;
+                name: string;
                 floor: number;
                 area: number;
-                rent: import("@prisma/client/runtime/library").Decimal;
-                deposit: import("@prisma/client/runtime/library").Decimal;
+                rent: Prisma.Decimal;
+                deposit: Prisma.Decimal;
                 occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
+                availableAt: Date | null;
                 videoUrl: string | null;
                 amenities: ({
                     amenity: {
                         id: string;
+                        description: string | null;
                         createdAt: Date;
                         name: string;
-                        description: string | null;
                         icon: string | null;
                     };
                 } & {
@@ -648,8 +771,8 @@ export declare class AdminService {
                 })[];
                 images: {
                     id: string;
-                    createdAt: Date;
                     roomId: string;
+                    createdAt: Date;
                     url: string;
                     caption: string | null;
                     isPrimary: boolean;
@@ -657,21 +780,21 @@ export declare class AdminService {
                 }[];
                 media: {
                     id: string;
+                    roomId: string;
                     type: string;
                     createdAt: Date;
-                    roomId: string;
                     url: string;
                 }[];
             };
             documents: {
-                id: string;
-                userId: string;
-                type: import(".prisma/client").$Enums.DocumentType;
-                name: string;
                 deletedAt: Date | null;
                 status: import(".prisma/client").$Enums.DocumentStatus;
+                id: string;
+                userId: string;
                 bookingId: string | null;
+                type: import(".prisma/client").$Enums.DocumentType;
                 updatedAt: Date;
+                name: string;
                 fileUrl: string;
                 fileName: string | null;
                 fileSize: number | null;
@@ -683,19 +806,19 @@ export declare class AdminService {
                 reviewedAt: Date | null;
             }[];
         } & {
-            id: string;
-            userId: string;
-            createdAt: Date;
             deletedAt: Date | null;
             status: import(".prisma/client").$Enums.BookingStatus;
+            id: string;
+            userId: string;
             roomId: string;
+            createdAt: Date;
             updatedAt: Date;
             startDate: Date;
             endDate: Date | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             checkoutDate: Date | null;
-            bookingFee: import("@prisma/client/runtime/library").Decimal | null;
+            bookingFee: Prisma.Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
@@ -713,7 +836,7 @@ export declare class AdminService {
                 gender: string | null;
                 occupation: string | null;
                 companyName: string | null;
-                monthlyIncome: import("@prisma/client/runtime/library").Decimal | null;
+                monthlyIncome: Prisma.Decimal | null;
                 emergencyName: string | null;
                 emergencyPhone: string | null;
                 emergencyRelation: string | null;
@@ -721,13 +844,14 @@ export declare class AdminService {
                 kycVerifiedAt: Date | null;
             } | null;
         } & {
+            deletedAt: Date | null;
             id: string;
             createdAt: Date;
-            deletedAt: Date | null;
             updatedAt: Date;
             email: string | null;
             phone: string;
-            password: string;
+            password: string | null;
+            dob: Date | null;
             role: import(".prisma/client").$Enums.UserRole;
             firstName: string;
             lastName: string;
@@ -740,13 +864,14 @@ export declare class AdminService {
         })[];
     }>;
     approveTenant(userId: string): Promise<{
+        deletedAt: Date | null;
         id: string;
         createdAt: Date;
-        deletedAt: Date | null;
         updatedAt: Date;
         email: string | null;
         phone: string;
-        password: string;
+        password: string | null;
+        dob: Date | null;
         role: import(".prisma/client").$Enums.UserRole;
         firstName: string;
         lastName: string;
@@ -758,13 +883,14 @@ export declare class AdminService {
         emailVerifyToken: string | null;
     }>;
     rejectTenant(userId: string): Promise<{
+        deletedAt: Date | null;
         id: string;
         createdAt: Date;
-        deletedAt: Date | null;
         updatedAt: Date;
         email: string | null;
         phone: string;
-        password: string;
+        password: string | null;
+        dob: Date | null;
         role: import(".prisma/client").$Enums.UserRole;
         firstName: string;
         lastName: string;
@@ -776,13 +902,14 @@ export declare class AdminService {
         emailVerifyToken: string | null;
     }>;
     suspendTenant(userId: string): Promise<{
+        deletedAt: Date | null;
         id: string;
         createdAt: Date;
-        deletedAt: Date | null;
         updatedAt: Date;
         email: string | null;
         phone: string;
-        password: string;
+        password: string | null;
+        dob: Date | null;
         role: import(".prisma/client").$Enums.UserRole;
         firstName: string;
         lastName: string;

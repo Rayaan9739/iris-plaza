@@ -2,10 +2,8 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsEnum,
-  MinLength,
   MaxLength,
-  IsPhoneNumber,
+  IsDateString,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -23,12 +21,6 @@ export class SignUpDto {
   @IsString()
   email?: string;
 
-  @ApiProperty({ example: "password123", minLength: 8, maxLength: 32 })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(32)
-  password: string;
-
   @ApiProperty({ example: "John" })
   @IsString()
   @IsNotEmpty()
@@ -40,6 +32,13 @@ export class SignUpDto {
   @IsNotEmpty()
   @MaxLength(50)
   lastName: string;
+
+  @ApiProperty({
+    example: "2001-08-15",
+    description: "Date of birth in ISO format (YYYY-MM-DD)",
+  })
+  @IsDateString()
+  dob: string;
 
   // Identity details for TenantProfile
   @ApiPropertyOptional({ example: "John Smith" })
@@ -80,7 +79,7 @@ export class SignUpDto {
 }
 
 /**
- * Sign in DTO with phone and password
+ * Sign in DTO with phone and DOB
  */
 export class SignInDto {
   @ApiProperty({ example: "+1234567890" })
@@ -88,10 +87,12 @@ export class SignInDto {
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty({ example: "password123" })
-  @IsString()
-  @IsNotEmpty()
-  password: string;
+  @ApiProperty({
+    example: "2001-08-15",
+    description: "Date of birth in ISO format (YYYY-MM-DD)",
+  })
+  @IsDateString()
+  dob: string;
 }
 
 /**
@@ -102,4 +103,18 @@ export class RefreshTokenDto {
   @IsString()
   @IsNotEmpty()
   refreshToken: string;
+}
+
+export class SetDobDto {
+  @ApiProperty({ example: "+1234567890" })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({
+    example: "2001-08-15",
+    description: "Date of birth in ISO format (YYYY-MM-DD)",
+  })
+  @IsDateString()
+  dob: string;
 }

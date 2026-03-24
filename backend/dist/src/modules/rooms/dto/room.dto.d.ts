@@ -26,6 +26,10 @@ export declare class CreateRoomDto {
 }
 export declare class UpdateRoomDto {
     name?: string;
+    isAvailable?: boolean;
+    occupiedUntil?: string;
+    tenantName?: string;
+    tenantPhone?: string;
     type?: RoomType;
     description?: string;
     videoUrl?: string;
@@ -34,6 +38,8 @@ export declare class UpdateRoomDto {
     floor?: number;
     area?: number;
     rent?: number;
+    bookingSource?: string;
+    brokerName?: string | null;
     deposit?: number;
     amenities?: string[];
     status?: string;

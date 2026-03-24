@@ -25,6 +25,14 @@ let BookingsService = BookingsService_1 = class BookingsService {
         this.agreementsService = agreementsService;
         this.eventEmitter = eventEmitter;
         this.logger = new common_1.Logger(BookingsService_1.name);
+        this.conflictBookingStatuses = [
+            "PENDING",
+            "PENDING_APPROVAL",
+            "VERIFICATION_PENDING",
+            "APPROVED_PENDING_PAYMENT",
+            "APPROVED",
+            "RESERVED",
+        ];
         this.roomSafeSelect = {
             id: true,
             name: true,
@@ -57,6 +65,34 @@ let BookingsService = BookingsService_1 = class BookingsService {
     }
     toStartOfUtcDay(date) {
         return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    }
+    getBookingWindow(booking) {
+        const startCandidate = booking.moveInDate ??
+            booking.startDate ??
+            booking.createdAt ??
+            null;
+        const endCandidate = booking.moveOutDate ??
+            booking.endDate ??
+            booking.checkoutDate ??
+            null;
+        const normalizedStart = startCandidate && !Number.isNaN(new Date(startCandidate).getTime())
+            ? this.toStartOfUtcDay(new Date(startCandidate))
+            : null;
+        const normalizedEnd = endCandidate && !Number.isNaN(new Date(endCandidate).getTime())
+            ? this.toStartOfUtcDay(new Date(endCandidate))
+            : null;
+        return {
+            start: normalizedStart,
+            end: normalizedEnd,
+        };
+    }
+    hasBookingOverlap(booking, requestedStart, requestedEnd) {
+        const { start, end } = this.getBookingWindow(booking);
+        if (!start) {
+            return true;
+        }
+        const effectiveEnd = end ?? new Date("9999-12-31T00:00:00.000Z");
+        return start < requestedEnd && effectiveEnd > requestedStart;
     }
     normalizeDateInputUtc(value, fieldName) {
         const parsed = new Date(String(value));
@@ -207,15 +243,28 @@ let BookingsService = BookingsService_1 = class BookingsService {
         if (!user) {
             throw new common_1.BadRequestException("User not found");
         }
-        const existingUserBooking = await this.prisma.booking.findFirst({
+        const existingUserBookings = await this.prisma.booking.findMany({
             where: {
                 userId,
+                deletedAt: null,
                 status: {
-                    in: ["PENDING_APPROVAL", "APPROVED"]
-                }
-            }
+                    in: this.conflictBookingStatuses,
+                },
+            },
+            select: {
+                id: true,
+                status: true,
+                startDate: true,
+                moveInDate: true,
+                endDate: true,
+                moveOutDate: true,
+                checkoutDate: true,
+                createdAt: true,
+            },
         });
-        if (existingUserBooking) {
+        const userBookingConflict = existingUserBookings.find((booking) => this.hasBookingOverlap(booking, normalizedMoveInDate, normalizedMoveOutDate));
+        if (userBookingConflict) {
+            this.logger.warn(`[BookingCreate] User booking conflict userId=${userId} bookingId=${userBookingConflict.id} status=${userBookingConflict.status}`);
             throw new common_1.BadRequestException("You already have an active room or pending request");
         }
         const occupiedRoom = await this.prisma.room.findFirst({
@@ -269,16 +318,28 @@ let BookingsService = BookingsService_1 = class BookingsService {
         else if (normalizedRoomStatus !== "AVAILABLE") {
             throw new common_1.BadRequestException("Room is not available for booking");
         }
-        const existingActiveBooking = await this.prisma.booking.findFirst({
+        const existingRoomBookings = await this.prisma.booking.findMany({
             where: {
                 roomId: normalizedRoomId,
+                deletedAt: null,
                 status: {
-                    in: ["PENDING_APPROVAL", "APPROVED"],
+                    in: this.conflictBookingStatuses,
                 },
             },
-            select: { id: true, status: true },
+            select: {
+                id: true,
+                status: true,
+                startDate: true,
+                moveInDate: true,
+                endDate: true,
+                moveOutDate: true,
+                checkoutDate: true,
+                createdAt: true,
+            },
         });
+        const existingActiveBooking = existingRoomBookings.find((booking) => this.hasBookingOverlap(booking, normalizedMoveInDate, normalizedMoveOutDate));
         if (existingActiveBooking) {
+            this.logger.warn(`[BookingCreate] Room booking conflict roomId=${normalizedRoomId} bookingId=${existingActiveBooking.id} status=${existingActiveBooking.status}`);
             throw new common_1.BadRequestException("Room already has an active booking request");
         }
         const internalRent = Number(room.rent ?? 0);

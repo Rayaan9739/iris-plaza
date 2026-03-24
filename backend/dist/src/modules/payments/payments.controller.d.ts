@@ -18,18 +18,18 @@ export declare class PaymentsController {
         billingPeriod: string;
         roomDetails: {
             id: string;
-            type: import(".prisma/client").$Enums.RoomType;
             createdAt: Date;
-            name: string;
-            deletedAt: Date | null;
-            status: import(".prisma/client").$Enums.RoomStatus;
-            isAvailable: boolean;
-            description: string | null;
             updatedAt: Date;
+            deletedAt: Date | null;
+            name: string;
+            description: string | null;
+            status: import(".prisma/client").$Enums.RoomStatus;
+            type: import(".prisma/client").$Enums.RoomType;
             floor: number;
             area: number;
             rent: import("@prisma/client/runtime/library").Decimal;
             deposit: import("@prisma/client/runtime/library").Decimal;
+            isAvailable: boolean;
             occupiedFrom: Date | null;
             occupiedUntil: Date | null;
             availableAt: Date | null;
@@ -54,13 +54,16 @@ export declare class PaymentsController {
         message: string;
         payment: {
             id: string;
-            userId: string;
-            type: import(".prisma/client").$Enums.PaymentType;
             createdAt: Date;
-            status: import(".prisma/client").$Enums.PaymentStatus;
-            tenantId: string | null;
+            updatedAt: Date;
+            userId: string;
+            description: string | null;
             roomId: string | null;
+            status: import(".prisma/client").$Enums.PaymentStatus;
+            type: import(".prisma/client").$Enums.PaymentType;
+            month: string;
             bookingId: string | null;
+            tenantId: string | null;
             rentCycleId: string | null;
             invoiceId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
@@ -70,7 +73,6 @@ export declare class PaymentsController {
             amountPaid: import("@prisma/client/runtime/library").Decimal | null;
             borrowedAmount: import("@prisma/client/runtime/library").Decimal | null;
             remainingAmount: import("@prisma/client/runtime/library").Decimal | null;
-            month: string;
             paymentMethod: import(".prisma/client").$Enums.PaymentMethod | null;
             screenshotUrl: string | null;
             transactionId: string | null;
@@ -80,9 +82,7 @@ export declare class PaymentsController {
             gatewayOrderId: string | null;
             gatewayPaymentId: string | null;
             gatewaySignature: string | null;
-            description: string | null;
             invoiceUrl: string | null;
-            updatedAt: Date;
         };
     }>;
     rejectPayment(paymentId: string, body: {
@@ -92,13 +92,16 @@ export declare class PaymentsController {
         message: string;
         payment: {
             id: string;
-            userId: string;
-            type: import(".prisma/client").$Enums.PaymentType;
             createdAt: Date;
-            status: import(".prisma/client").$Enums.PaymentStatus;
-            tenantId: string | null;
+            updatedAt: Date;
+            userId: string;
+            description: string | null;
             roomId: string | null;
+            status: import(".prisma/client").$Enums.PaymentStatus;
+            type: import(".prisma/client").$Enums.PaymentType;
+            month: string;
             bookingId: string | null;
+            tenantId: string | null;
             rentCycleId: string | null;
             invoiceId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
@@ -108,7 +111,6 @@ export declare class PaymentsController {
             amountPaid: import("@prisma/client/runtime/library").Decimal | null;
             borrowedAmount: import("@prisma/client/runtime/library").Decimal | null;
             remainingAmount: import("@prisma/client/runtime/library").Decimal | null;
-            month: string;
             paymentMethod: import(".prisma/client").$Enums.PaymentMethod | null;
             screenshotUrl: string | null;
             transactionId: string | null;
@@ -118,9 +120,7 @@ export declare class PaymentsController {
             gatewayOrderId: string | null;
             gatewayPaymentId: string | null;
             gatewaySignature: string | null;
-            description: string | null;
             invoiceUrl: string | null;
-            updatedAt: Date;
         };
     }>;
     getPaymentSummary(req: any): Promise<{
@@ -138,13 +138,16 @@ export declare class PaymentsController {
     }>;
     uploadScreenshot(file: Express.Multer.File, paymentId: string): Promise<{
         id: string;
-        userId: string;
-        type: import(".prisma/client").$Enums.PaymentType;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.PaymentStatus;
-        tenantId: string | null;
+        updatedAt: Date;
+        userId: string;
+        description: string | null;
         roomId: string | null;
+        status: import(".prisma/client").$Enums.PaymentStatus;
+        type: import(".prisma/client").$Enums.PaymentType;
+        month: string;
         bookingId: string | null;
+        tenantId: string | null;
         rentCycleId: string | null;
         invoiceId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
@@ -154,7 +157,6 @@ export declare class PaymentsController {
         amountPaid: import("@prisma/client/runtime/library").Decimal | null;
         borrowedAmount: import("@prisma/client/runtime/library").Decimal | null;
         remainingAmount: import("@prisma/client/runtime/library").Decimal | null;
-        month: string;
         paymentMethod: import(".prisma/client").$Enums.PaymentMethod | null;
         screenshotUrl: string | null;
         transactionId: string | null;
@@ -164,8 +166,6 @@ export declare class PaymentsController {
         gatewayOrderId: string | null;
         gatewayPaymentId: string | null;
         gatewaySignature: string | null;
-        description: string | null;
         invoiceUrl: string | null;
-        updatedAt: Date;
     }>;
 }

@@ -28,6 +28,9 @@ let AuthController = class AuthController {
     async signIn(signInDto) {
         return this.authService.signIn(signInDto);
     }
+    async setDob(setDobDto) {
+        return this.authService.setDob(setDobDto);
+    }
     async refresh(refreshTokenDto) {
         return this.authService.refreshTokens(refreshTokenDto);
     }
@@ -38,8 +41,8 @@ let AuthController = class AuthController {
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)("signup"),
-    (0, swagger_1.ApiOperation)({ summary: "Register a new tenant account (requires admin approval)" }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: "User registered successfully, pending approval" }),
+    (0, swagger_1.ApiOperation)({ summary: "Register a new tenant account with DOB" }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "User registered successfully" }),
     (0, swagger_1.ApiResponse)({ status: 400, description: "Bad request - user already exists" }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -49,14 +52,25 @@ __decorate([
 __decorate([
     (0, common_1.Post)("login"),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: "Sign in with phone and password" }),
+    (0, swagger_1.ApiOperation)({ summary: "Sign in with phone and DOB" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Login successful" }),
-    (0, swagger_1.ApiResponse)({ status: 401, description: "Invalid credentials" }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: "Invalid DOB" }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [auth_dto_1.SignInDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "signIn", null);
+__decorate([
+    (0, common_1.Post)("set-dob"),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: "Set DOB for an existing user by phone" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "DOB set successfully" }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: "Bad request" }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.SetDobDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "setDob", null);
 __decorate([
     (0, common_1.Post)("refresh"),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
