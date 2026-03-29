@@ -50,5 +50,7 @@ async function bootstrap() {
     console.log(`Application running at: http://localhost:${port}`);
     console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+    console.error("Fatal error during application bootstrap:", err);
+});
 //# sourceMappingURL=main.js.map

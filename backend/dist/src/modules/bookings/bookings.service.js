@@ -50,6 +50,10 @@ let BookingsService = BookingsService_1 = class BookingsService {
             createdAt: true,
             updatedAt: true,
             deletedAt: true,
+            managementRent: true,
+            managementStatus: true,
+            managementIsAvailable: true,
+            managementOccupiedUntil: true,
             media: { orderBy: { createdAt: "asc" } },
             amenities: { include: { amenity: true } },
             images: { orderBy: { order: "asc" } },
@@ -146,7 +150,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
         });
         for (const admin of admins) {
             await this.notificationsService.create(admin.id, {
-                type: "PUSH",
+                type: client_1.NotificationType.PUSH,
                 title,
                 message,
             });
@@ -197,8 +201,13 @@ let BookingsService = BookingsService_1 = class BookingsService {
             moveInDate: booking.moveInDate ?? booking.startDate,
             room: {
                 ...booking.room,
-                rent: Number(booking.room?.rent ?? 0),
+                rent: Number(booking?.rentAmount ??
+                    booking.room?.managementRent ??
+                    booking.room?.rent ?? 0),
                 deposit: Number(booking.room?.deposit ?? 0),
+                status: booking.room?.managementStatus ?? booking.room?.status ?? 'AVAILABLE',
+                isAvailable: booking.room?.managementIsAvailable ?? booking.room?.isAvailable ?? true,
+                occupiedUntil: booking.room?.managementOccupiedUntil ?? booking.room?.occupiedUntil,
             },
             agreement: booking.agreement,
         };
@@ -434,7 +443,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
                 data: { accountStatus: "ACTIVE" },
             });
             await this.notificationsService.create(booking.userId, {
-                type: "PUSH",
+                type: client_1.NotificationType.PUSH,
                 title: "Booking Approved",
                 message: "Your booking has been approved by the admin. Your room is now ready for move-in.",
             });
@@ -443,7 +452,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
                 const agreementUrl = await this.agreementsService.generateRentalAgreement(booking.id);
                 console.log(`[Agreement] Rental agreement generated successfully for booking ${booking.id}: ${agreementUrl}`);
                 await this.notificationsService.create(booking.userId, {
-                    type: "PUSH",
+                    type: client_1.NotificationType.PUSH,
                     title: "Rental Agreement Generated",
                     message: "Your rental agreement has been generated. You can download it from the Documents section.",
                 });
@@ -455,7 +464,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
         }
         if (normalizedStatus === "APPROVED_PENDING_PAYMENT") {
             await this.notificationsService.create(booking.userId, {
-                type: "PUSH",
+                type: client_1.NotificationType.PUSH,
                 title: "Booking Approved",
                 message: "Your booking request is approved. Please complete the initial payment (Deposit + First month rent) to confirm your occupancy.",
             });
@@ -469,7 +478,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
                 throw new common_1.NotFoundException("Booking not found");
             }
             const depositAmount = Number(bookingWithRoom.room.deposit ?? 0);
-            const rentAmount = Number(bookingWithRoom.room.rent ?? 0);
+            const rentAmount = Number(bookingWithRoom.rentAmount ?? bookingWithRoom.room.rent ?? 0);
             const month = this.monthKey(new Date());
             const existingDeposit = await this.prisma.payment.findFirst({
                 where: {
@@ -557,7 +566,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
             updateData.expiresAt = new Date();
             if (normalizedStatus === "REJECTED") {
                 await this.notificationsService.create(booking.userId, {
-                    type: "PUSH",
+                    type: client_1.NotificationType.PUSH,
                     title: "Booking Rejected",
                     message: "Your booking request was rejected.",
                 });
@@ -747,7 +756,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
             },
         });
         await this.notificationsService.create(extensionRequest.tenantId, {
-            type: "PUSH",
+            type: client_1.NotificationType.PUSH,
             title: "Extension Approved",
             message: "Your extension request has been approved.",
         });
@@ -788,7 +797,7 @@ let BookingsService = BookingsService_1 = class BookingsService {
             },
         });
         await this.notificationsService.create(extensionRequest.tenantId, {
-            type: "PUSH",
+            type: client_1.NotificationType.PUSH,
             title: "Extension Rejected",
             message: "Your extension request was rejected. Please vacate as scheduled.",
         });

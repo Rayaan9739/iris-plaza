@@ -85,4 +85,7 @@ async function bootstrap() {
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error("Fatal error during application bootstrap:", err);
+  // Don't exit - let the process stay alive for health checks
+});

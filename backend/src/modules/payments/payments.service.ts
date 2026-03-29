@@ -34,6 +34,11 @@ export class PaymentsService {
     createdAt: true,
     updatedAt: true,
     deletedAt: true,
+    // Management fields
+    managementRent: true,
+    managementStatus: true,
+    managementIsAvailable: true,
+    managementOccupiedUntil: true,
     media: { orderBy: { createdAt: "asc" as const } },
   };
 
@@ -76,7 +81,7 @@ export class PaymentsService {
 
   private async getActiveApprovedBooking(userId: string) {
     return this.prisma.booking.findFirst({
-      where: { userId, status: "APPROVED" },
+      where: { userId, status: { in: ["APPROVED", "APPROVED_PENDING_PAYMENT"] } },
       include: { room: { select: this.roomSafeSelect } },
       orderBy: { createdAt: "desc" },
     });
@@ -102,7 +107,7 @@ export class PaymentsService {
       return;
     }
 
-    const baseRent = Number(booking.room?.rent ?? 0);
+    const baseRent = Number((booking as any).rentAmount ?? booking.room?.rent ?? 0);
     let cursor = new Date(firstDue);
 
     while (cursor <= now) {
@@ -397,7 +402,7 @@ export class PaymentsService {
       return;
     }
 
-    const baseRent = Number(booking.room?.rent ?? 0);
+    const baseRent = Number((booking as any).rentAmount ?? booking.room?.rent ?? 0);
     const nextAmount = Math.max(0, baseRent + newPendingAmount);
     await this.prisma.payment.create({
       data: {
@@ -730,7 +735,7 @@ export class PaymentsService {
     ]);
 
     const approvedBooking = await this.getActiveApprovedBooking(userId);
-    const baseRent = approvedBooking ? Number(approvedBooking.room.rent) : 0;
+    const baseRent = approvedBooking ? Number((approvedBooking as any).rentAmount ?? approvedBooking.room.rent ?? 0) : 0;
 
     const currentMonthRent = currentPayment
       ? Number(currentPayment.rentAmount ?? currentPayment.amount ?? 0)

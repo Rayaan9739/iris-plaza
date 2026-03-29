@@ -6,9 +6,9 @@ export declare class NotificationsController {
         id: string;
         createdAt: Date;
         userId: string;
-        message: string;
         type: import(".prisma/client").$Enums.NotificationType;
         title: string;
+        message: string;
         isRead: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         readAt: Date | null;

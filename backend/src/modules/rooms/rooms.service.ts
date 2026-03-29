@@ -1,6 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { BookingSource, BookingStatus, Prisma, RoomStatus } from "@prisma/client";
+import {
+  BookingSource,
+  BookingStatus,
+  Prisma,
+  RoomStatus,
+} from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/prisma/prisma.service";
 import { CreateRoomDto, UpdateRoomDto } from "./dto/room.dto";
 import { RoomType } from "./enums/room-type.enum";
@@ -81,12 +92,14 @@ export class RoomsService {
     };
   }
 
-  private async applyOccupancyStateFromBookings<TRoom extends {
-    id: string;
-    status: string;
-    isAvailable: boolean;
-    occupiedUntil: Date | string | null;
-  }>(rooms: TRoom[]): Promise<TRoom[]> {
+  private async applyOccupancyStateFromBookings<
+    TRoom extends {
+      id: string;
+      status: string;
+      isAvailable: boolean;
+      occupiedUntil: Date | string | null;
+    },
+  >(rooms: TRoom[]): Promise<TRoom[]> {
     if (!rooms.length) {
       return rooms;
     }
@@ -136,7 +149,12 @@ export class RoomsService {
 
     const year = Number(match[1]);
     const monthIndex = Number(match[2]) - 1;
-    if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(monthIndex) ||
+      monthIndex < 0 ||
+      monthIndex > 11
+    ) {
       throw new BadRequestException("month must be in YYYY-MM format");
     }
 
@@ -159,6 +177,11 @@ export class RoomsService {
     createdAt: true,
     updatedAt: true,
     deletedAt: true,
+    // Management fields for listing page
+    managementRent: true,
+    managementStatus: true,
+    managementIsAvailable: true,
+    managementOccupiedUntil: true,
     // Only fetch the first media/image for the thumbnail preview to reduce payload
     media: { orderBy: { createdAt: "asc" as const }, take: 1 },
     images: { orderBy: { order: "asc" as const }, take: 1 },
@@ -494,10 +517,10 @@ export class RoomsService {
   async refreshExpiredOccupancies() {
     this.logger.log("Starting scheduled occupancy refresh...");
     const now = new Date();
-    
+
     const maxRetries = 3;
     const retryDelay = 5000; // 5 seconds
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const result = await this.prisma.room.updateMany({
@@ -511,39 +534,51 @@ export class RoomsService {
             occupiedFrom: null,
           },
         });
-        
+
         if (result.count > 0) {
-          this.logger.log(`Successfully refreshed ${result.count} expired room occupancies`);
+          this.logger.log(
+            `Successfully refreshed ${result.count} expired room occupancies`,
+          );
         } else {
           this.logger.log("No expired occupancies found");
         }
 
-        const processedTransfers = await this.processDueRoomTransfers(new Date());
+        const processedTransfers = await this.processDueRoomTransfers(
+          new Date(),
+        );
         if (processedTransfers > 0) {
-          this.logger.log(`Applied ${processedTransfers} scheduled room transfer(s)`);
+          this.logger.log(
+            `Applied ${processedTransfers} scheduled room transfer(s)`,
+          );
         }
         return; // Success - exit the retry loop
-        
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Occupancy refresh attempt ${attempt}/${maxRetries} failed: ${errorMessage}`);
-        
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Occupancy refresh attempt ${attempt}/${maxRetries} failed: ${errorMessage}`,
+        );
+
         // Check if it's a connection error (P1001 is Prisma's connection error code)
-        const isConnectionError = errorMessage.includes("P1001") || 
-                                   errorMessage.includes("connection") ||
-                                   errorMessage.includes("timeout");
-        
+        const isConnectionError =
+          errorMessage.includes("P1001") ||
+          errorMessage.includes("connection") ||
+          errorMessage.includes("timeout");
+
         if (!isConnectionError || attempt === maxRetries) {
           // Non-connection error or max retries reached
           // Only log if it's not a connection error
           if (!isConnectionError) {
-            this.logger.error("Occupancy refresh failed after all retries", error);
+            this.logger.error(
+              "Occupancy refresh failed after all retries",
+              error,
+            );
           }
           return;
         }
-        
+
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
       }
     }
   }
@@ -599,7 +634,10 @@ export class RoomsService {
 
   async create(createRoomDto: CreateRoomDto) {
     console.log("[ROOMS SERVICE CREATE] Received type:", createRoomDto.type);
-    console.log("[ROOMS SERVICE CREATE] Full DTO:", JSON.stringify(createRoomDto));
+    console.log(
+      "[ROOMS SERVICE CREATE] Full DTO:",
+      JSON.stringify(createRoomDto),
+    );
 
     const payload: any = { ...(createRoomDto as any) };
     delete payload.existingMedia;
@@ -714,28 +752,28 @@ export class RoomsService {
         const allowedStatuses = Object.values(RoomStatus);
         if (!allowedStatuses.includes(normalizedStatus as RoomStatus)) {
           throw new BadRequestException(
-            `Invalid room status "${status}". Allowed values: ${allowedStatuses.join(', ')}`,
+            `Invalid room status "${status}". Allowed values: ${allowedStatuses.join(", ")}`,
           );
         }
         roomData.status = normalizedStatus as RoomStatus;
       }
 
       if (isAvailable !== undefined) {
-        if (typeof isAvailable !== 'boolean') {
-          throw new BadRequestException('isAvailable must be a boolean');
+        if (typeof isAvailable !== "boolean") {
+          throw new BadRequestException("isAvailable must be a boolean");
         }
         roomData.isAvailable = isAvailable;
       }
 
       let parsedOccupiedUntil: Date | null | undefined = undefined;
       if (occupiedUntil !== undefined) {
-        if (occupiedUntil === null || String(occupiedUntil).trim() === '') {
+        if (occupiedUntil === null || String(occupiedUntil).trim() === "") {
           parsedOccupiedUntil = null;
         } else {
           const candidate = new Date(String(occupiedUntil));
           if (Number.isNaN(candidate.getTime())) {
             throw new BadRequestException(
-              'occupiedUntil must be a valid ISO date string',
+              "occupiedUntil must be a valid ISO date string",
             );
           }
           parsedOccupiedUntil = candidate;
@@ -748,9 +786,8 @@ export class RoomsService {
         normalizedStatus === undefined &&
         isAvailable === undefined
       ) {
-        const derivedOccupancy = this.deriveRoomOccupancyState(
-          parsedOccupiedUntil,
-        );
+        const derivedOccupancy =
+          this.deriveRoomOccupancyState(parsedOccupiedUntil);
         roomData.status = derivedOccupancy.status;
         roomData.isAvailable = derivedOccupancy.isAvailable;
       }
@@ -762,26 +799,38 @@ export class RoomsService {
 
       if (isMarkingOccupied) {
         const normalizedTenantName =
-          typeof tenantName === 'string' ? tenantName.trim() : '';
+          typeof tenantName === "string" ? tenantName.trim() : "";
         const normalizedTenantPhone =
-          typeof tenantPhone === 'string' ? tenantPhone.trim() : '';
+          typeof tenantPhone === "string" ? tenantPhone.trim() : "";
         const incomingBookingSource =
-          typeof bookingSource === 'string' ? bookingSource.trim() : '';
+          typeof bookingSource === "string" ? bookingSource.trim() : "";
         const normalizedBrokerName =
-          typeof brokerName === 'string' ? brokerName.trim() : '';
+          typeof brokerName === "string" ? brokerName.trim() : "";
 
         const validationErrors: string[] = [];
         if (tenantName === undefined || !normalizedTenantName) {
-          validationErrors.push('tenantName is required when marking room occupied');
+          validationErrors.push(
+            "tenantName is required when marking room occupied",
+          );
         }
         if (tenantPhone === undefined || !normalizedTenantPhone) {
-          validationErrors.push('tenantPhone is required when marking room occupied');
+          validationErrors.push(
+            "tenantPhone is required when marking room occupied",
+          );
         }
         if (bookingSource === undefined || !incomingBookingSource) {
-          validationErrors.push('bookingSource is required when marking room occupied');
+          validationErrors.push(
+            "bookingSource is required when marking room occupied",
+          );
         }
-        if (occupiedUntil === undefined || parsedOccupiedUntil === null || !parsedOccupiedUntil) {
-          validationErrors.push('occupiedUntil is required when marking room occupied');
+        if (
+          occupiedUntil === undefined ||
+          parsedOccupiedUntil === null ||
+          !parsedOccupiedUntil
+        ) {
+          validationErrors.push(
+            "occupiedUntil is required when marking room occupied",
+          );
         }
         if (
           incomingBookingSource &&
@@ -789,7 +838,7 @@ export class RoomsService {
           incomingBookingSource !== BookingSource.BROKER
         ) {
           validationErrors.push(
-            `bookingSource must be one of: ${Object.values(BookingSource).join(', ')}`,
+            `bookingSource must be one of: ${Object.values(BookingSource).join(", ")}`,
           );
         }
         if (
@@ -797,12 +846,12 @@ export class RoomsService {
           !normalizedBrokerName
         ) {
           validationErrors.push(
-            'brokerName is required when bookingSource is BROKER',
+            "brokerName is required when bookingSource is BROKER",
           );
         }
 
         if (validationErrors.length > 0) {
-          throw new BadRequestException(validationErrors.join('; '));
+          throw new BadRequestException(validationErrors.join("; "));
         }
 
         const room = await this.prisma.room.findUnique({
@@ -817,7 +866,7 @@ export class RoomsService {
           `[RoomsService.update][occupy:${id}] Step 1 - validating roomId`,
         );
         if (!id || !id.trim()) {
-          throw new BadRequestException('roomId is invalid');
+          throw new BadRequestException("roomId is invalid");
         }
 
         this.logger.log(
@@ -833,17 +882,17 @@ export class RoomsService {
           create: {
             phone: normalizedTenantPhone,
             firstName: normalizedTenantName,
-            lastName: '',
-            password: '',
-            role: 'TENANT',
+            lastName: "",
+            password: "",
+            role: "TENANT",
             isActive: true,
             isApproved: true,
-            accountStatus: 'ACTIVE',
+            accountStatus: "ACTIVE",
           },
         });
 
         if (!user?.id) {
-          throw new BadRequestException('Failed to resolve valid tenant user');
+          throw new BadRequestException("Failed to resolve valid tenant user");
         }
 
         this.logger.log(
@@ -869,7 +918,7 @@ export class RoomsService {
         });
 
         if (existingBooking) {
-          throw new BadRequestException('Room already occupied');
+          throw new BadRequestException("Room already occupied");
         }
 
         const moveInDate = new Date();
@@ -879,6 +928,7 @@ export class RoomsService {
         this.logger.log(
           `[RoomsService.update][occupy:${id}] Step 4 - creating booking + updating room in atomic transaction`,
         );
+        const rentAmount = Number((room as any).rent ?? 0);
         console.log("STEP 2: booking");
         console.log("STEP 3: room update");
         const [booking] = await this.prisma.$transaction([
@@ -896,6 +946,7 @@ export class RoomsService {
                 validatedBookingSource === BookingSource.BROKER
                   ? normalizedBrokerName
                   : null,
+              rentAmount: new Decimal(rentAmount),
             },
             select: {
               id: true,
@@ -921,7 +972,7 @@ export class RoomsService {
 
         if (!booking.userId || !booking.roomId) {
           throw new BadRequestException(
-            'Booking creation returned invalid booking.userId or booking.roomId',
+            "Booking creation returned invalid booking.userId or booking.roomId",
           );
         }
 
@@ -941,7 +992,7 @@ export class RoomsService {
           ...updatedRoom,
           booking,
           user,
-          message: 'Room marked as occupied successfully',
+          message: "Room marked as occupied successfully",
         };
       }
 
@@ -971,7 +1022,7 @@ export class RoomsService {
         }
         const imageRows = [
           ...(images?.map((img) => ({
-            url: img.url || '',
+            url: img.url || "",
             order: img.order || 0,
             caption: img.caption || undefined,
           })) ?? []),
@@ -980,7 +1031,7 @@ export class RoomsService {
                 {
                   url: videoUrl,
                   order: 999,
-                  caption: 'ROOM_VIDEO',
+                  caption: "ROOM_VIDEO",
                 },
               ]
             : []),
@@ -1062,7 +1113,10 @@ export class RoomsService {
         },
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       const errorMessage =
@@ -1078,7 +1132,7 @@ export class RoomsService {
     const bookings = await this.prisma.booking.findMany({
       where: { roomId: id },
     });
-    
+
     if (bookings && bookings.length > 0) {
       // If bookings exist, use soft delete instead
       return this.prisma.room.update({
@@ -1089,7 +1143,7 @@ export class RoomsService {
         },
       });
     }
-    
+
     // Only do hard delete if no bookings exist
     return this.prisma.room.delete({
       where: { id },
@@ -1123,20 +1177,26 @@ export class RoomsService {
 
     const now = new Date();
     const mappedRooms = normalizedRooms.map((room) => {
-      // Compute availability status
+      // Use rent field first (updated by admin), fall back to managementRent
+      const effectiveRent = room.rent ?? room.managementRent;
+      const effectiveStatus = room.status ?? room.managementStatus;
+      const effectiveIsAvailable =
+        room.isAvailable ?? room.managementIsAvailable;
+      const effectiveOccupiedUntil =
+        room.occupiedUntil ?? room.managementOccupiedUntil;
+
+      // Compute availability status based on management fields
       let availabilityStatus:
         | "AVAILABLE"
         | "RESERVED"
         | "OCCUPIED"
-        | "MAINTENANCE" = String(room.status || "AVAILABLE").toUpperCase() as
-        | "AVAILABLE"
-        | "RESERVED"
-        | "OCCUPIED"
-        | "MAINTENANCE";
+        | "MAINTENANCE" = String(
+        effectiveStatus || "AVAILABLE",
+      ).toUpperCase() as "AVAILABLE" | "RESERVED" | "OCCUPIED" | "MAINTENANCE";
       let availableFrom: string | null = null;
 
-      const occupiedUntilDate = room.occupiedUntil
-        ? new Date(room.occupiedUntil)
+      const occupiedUntilDate = effectiveOccupiedUntil
+        ? new Date(effectiveOccupiedUntil)
         : null;
 
       if (
@@ -1150,13 +1210,18 @@ export class RoomsService {
 
       return {
         ...room,
+        rent: effectiveRent,
+        status: effectiveStatus,
+        isAvailable: effectiveIsAvailable,
+        occupiedUntil: effectiveOccupiedUntil,
         availabilityStatus,
         availableFrom,
         // A room is considered selectable for a month if it becomes
         // available on/before that month's end.
-        availableBy: occupiedUntilDate && occupiedUntilDate > now
-          ? occupiedUntilDate.toISOString()
-          : now.toISOString(),
+        availableBy:
+          occupiedUntilDate && occupiedUntilDate > now
+            ? occupiedUntilDate.toISOString()
+            : now.toISOString(),
         rules: rulesMap.get(room.id) ?? [],
       };
     });
@@ -1194,4 +1259,3 @@ export class RoomsService {
     }));
   }
 }
-

@@ -4,7 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { BookingSource } from "@prisma/client";
+import { BookingSource, NotificationType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/prisma/prisma.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
@@ -47,6 +47,11 @@ export class BookingsService {
     createdAt: true,
     updatedAt: true,
     deletedAt: true,
+    // Management fields
+    managementRent: true,
+    managementStatus: true,
+    managementIsAvailable: true,
+    managementOccupiedUntil: true,
     media: { orderBy: { createdAt: "asc" as const } },
     amenities: { include: { amenity: true } },
     images: { orderBy: { order: "asc" as const } },
@@ -203,7 +208,7 @@ export class BookingsService {
 
     for (const admin of admins) {
       await this.notificationsService.create(admin.id, {
-        type: "PUSH" as any,
+        type: NotificationType.PUSH,
         title,
         message,
       });
@@ -259,8 +264,17 @@ export class BookingsService {
       moveInDate: booking.moveInDate ?? booking.startDate,
       room: {
         ...booking.room,
-        rent: Number((booking.room as any)?.rent ?? 0),
+        // Priority: booking.rentAmount (tenant-specific) > managementRent > room.rent (listing)
+        rent: Number(
+          (booking as any)?.rentAmount ?? 
+          (booking.room as any)?.managementRent ?? 
+          (booking.room as any)?.rent ?? 0
+        ),
         deposit: Number((booking.room as any)?.deposit ?? 0),
+        // Use management status fields if available
+        status: (booking.room as any)?.managementStatus ?? (booking.room as any)?.status ?? 'AVAILABLE',
+        isAvailable: (booking.room as any)?.managementIsAvailable ?? (booking.room as any)?.isAvailable ?? true,
+        occupiedUntil: (booking.room as any)?.managementOccupiedUntil ?? (booking.room as any)?.occupiedUntil,
       },
       // Include agreement in response
       agreement: booking.agreement,
@@ -610,7 +624,7 @@ export class BookingsService {
       });
 
       await this.notificationsService.create(booking.userId, {
-        type: "PUSH" as any,
+        type: NotificationType.PUSH,
         title: "Booking Approved",
         message: "Your booking has been approved by the admin. Your room is now ready for move-in.",
       });
@@ -621,7 +635,7 @@ export class BookingsService {
         const agreementUrl = await this.agreementsService.generateRentalAgreement(booking.id);
         console.log(`[Agreement] Rental agreement generated successfully for booking ${booking.id}: ${agreementUrl}`);
         await this.notificationsService.create(booking.userId, {
-          type: "PUSH" as any,
+          type: NotificationType.PUSH,
           title: "Rental Agreement Generated",
           message: "Your rental agreement has been generated. You can download it from the Documents section.",
         });
@@ -635,7 +649,7 @@ export class BookingsService {
     // Generate payments and notify when admin approves the request
     if (normalizedStatus === "APPROVED_PENDING_PAYMENT") {
       await this.notificationsService.create(booking.userId, {
-        type: "PUSH" as any,
+        type: NotificationType.PUSH,
         title: "Booking Approved",
         message: "Your booking request is approved. Please complete the initial payment (Deposit + First month rent) to confirm your occupancy.",
       });
@@ -651,7 +665,7 @@ export class BookingsService {
       }
 
       const depositAmount = Number((bookingWithRoom.room as any).deposit ?? 0);
-      const rentAmount = Number((bookingWithRoom.room as any).rent ?? 0);
+      const rentAmount = Number((bookingWithRoom as any).rentAmount ?? (bookingWithRoom.room as any).rent ?? 0);
       const month = this.monthKey(new Date());
 
       const existingDeposit = await this.prisma.payment.findFirst({
@@ -751,7 +765,7 @@ export class BookingsService {
       updateData.expiresAt = new Date();
       if (normalizedStatus === "REJECTED") {
         await this.notificationsService.create(booking.userId, {
-          type: "PUSH" as any,
+          type: NotificationType.PUSH,
           title: "Booking Rejected",
           message: "Your booking request was rejected.",
         });
@@ -1011,7 +1025,7 @@ export class BookingsService {
     });
 
     await this.notificationsService.create(extensionRequest.tenantId, {
-      type: "PUSH" as any,
+      type: NotificationType.PUSH,
       title: "Extension Approved",
       message: "Your extension request has been approved.",
     });
@@ -1061,7 +1075,7 @@ export class BookingsService {
     });
 
     await this.notificationsService.create(extensionRequest.tenantId, {
-      type: "PUSH" as any,
+      type: NotificationType.PUSH,
       title: "Extension Rejected",
       message: "Your extension request was rejected. Please vacate as scheduled.",
     });

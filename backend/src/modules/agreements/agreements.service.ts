@@ -362,49 +362,60 @@ export class AgreementsService {
   // Expire agreements that have passed their end date and update room status
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async expireAgreements() {
-    this.logger.log('Running scheduled task to expire agreements...');
-    const normalizedTodayUtc = this.toStartOfUtcDay(new Date());
-    
-    // Find active agreements that have expired
-    const expiredAgreements = await this.prisma.agreement.findMany({
-      where: {
-        status: "ACTIVE" as any,
-        endDate: {
-          lt: normalizedTodayUtc
-        }
-      },
-      include: {
-        booking: true
-      }
-    });
-    
-    // Update each expired agreement and release the room
-    for (const agreement of expiredAgreements) {
-      // Update agreement status to EXPIRED
-      await this.prisma.agreement.update({
-        where: { id: agreement.id },
-        data: {
-          status: "EXPIRED" as any
+    try {
+      this.logger.log('Running scheduled task to expire agreements...');
+      const normalizedTodayUtc = this.toStartOfUtcDay(new Date());
+      
+      // Find active agreements that have expired
+      const expiredAgreements = await this.prisma.agreement.findMany({
+        where: {
+          status: "ACTIVE" as any,
+          endDate: {
+            lt: normalizedTodayUtc
+          }
+        },
+        include: {
+          booking: true
         }
       });
       
-      // Release the room
-      await this.prisma.room.update({
-        where: { id: agreement.booking.roomId },
-        data: {
-          status: "AVAILABLE" as any,
-          isAvailable: true,
-          occupiedFrom: null,
-          occupiedUntil: null
-        }
-      });
+      // Update each expired agreement and release the room
+      for (const agreement of expiredAgreements) {
+        // Update agreement status to EXPIRED
+        await this.prisma.agreement.update({
+          where: { id: agreement.id },
+          data: {
+            status: "EXPIRED" as any
+          }
+        });
+        
+        // Release the room
+        await this.prisma.room.update({
+          where: { id: agreement.booking.roomId },
+          data: {
+            status: "AVAILABLE" as any,
+            isAvailable: true,
+            occupiedFrom: null,
+            occupiedUntil: null
+          }
+        });
+      }
+      
+      this.logger.log(`Expired ${expiredAgreements.length} agreements`);
+      
+      return {
+        expiredCount: expiredAgreements.length,
+        agreements: expiredAgreements
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isConnectionError = errorMessage.includes('P1001') ||
+                               errorMessage.includes('connection') ||
+                               errorMessage.includes('timeout');
+      if (!isConnectionError) {
+        this.logger.error('Error expiring agreements:', error);
+      }
+      return { expiredCount: 0, agreements: [] };
     }
-    
-    this.logger.log(`Expired ${expiredAgreements.length} agreements`);
-    
-    return {
-      expiredCount: expiredAgreements.length,
-      agreements: expiredAgreements
-    };
   }
 }

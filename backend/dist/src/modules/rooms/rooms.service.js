@@ -14,6 +14,7 @@ exports.RoomsService = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
 const client_1 = require("@prisma/client");
+const library_1 = require("@prisma/client/runtime/library");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const room_type_enum_1 = require("./enums/room-type.enum");
 const LEGACY_ROOM_TYPE_MAP = {
@@ -44,6 +45,10 @@ let RoomsService = RoomsService_1 = class RoomsService {
             createdAt: true,
             updatedAt: true,
             deletedAt: true,
+            managementRent: true,
+            managementStatus: true,
+            managementIsAvailable: true,
+            managementOccupiedUntil: true,
             media: { orderBy: { createdAt: "asc" }, take: 1 },
             images: { orderBy: { order: "asc" }, take: 1 },
             amenities: { include: { amenity: true } },
@@ -141,7 +146,10 @@ let RoomsService = RoomsService_1 = class RoomsService {
         }
         const year = Number(match[1]);
         const monthIndex = Number(match[2]) - 1;
-        if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+        if (!Number.isFinite(year) ||
+            !Number.isFinite(monthIndex) ||
+            monthIndex < 0 ||
+            monthIndex > 11) {
             throw new common_1.BadRequestException("month must be in YYYY-MM format");
         }
         return new Date(Date.UTC(year, monthIndex, 1));
@@ -425,7 +433,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                     }
                     return;
                 }
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                await new Promise((resolve) => setTimeout(resolve, retryDelay));
             }
         }
     }
@@ -545,25 +553,25 @@ let RoomsService = RoomsService_1 = class RoomsService {
             if (normalizedStatus !== undefined) {
                 const allowedStatuses = Object.values(client_1.RoomStatus);
                 if (!allowedStatuses.includes(normalizedStatus)) {
-                    throw new common_1.BadRequestException(`Invalid room status "${status}". Allowed values: ${allowedStatuses.join(', ')}`);
+                    throw new common_1.BadRequestException(`Invalid room status "${status}". Allowed values: ${allowedStatuses.join(", ")}`);
                 }
                 roomData.status = normalizedStatus;
             }
             if (isAvailable !== undefined) {
-                if (typeof isAvailable !== 'boolean') {
-                    throw new common_1.BadRequestException('isAvailable must be a boolean');
+                if (typeof isAvailable !== "boolean") {
+                    throw new common_1.BadRequestException("isAvailable must be a boolean");
                 }
                 roomData.isAvailable = isAvailable;
             }
             let parsedOccupiedUntil = undefined;
             if (occupiedUntil !== undefined) {
-                if (occupiedUntil === null || String(occupiedUntil).trim() === '') {
+                if (occupiedUntil === null || String(occupiedUntil).trim() === "") {
                     parsedOccupiedUntil = null;
                 }
                 else {
                     const candidate = new Date(String(occupiedUntil));
                     if (Number.isNaN(candidate.getTime())) {
-                        throw new common_1.BadRequestException('occupiedUntil must be a valid ISO date string');
+                        throw new common_1.BadRequestException("occupiedUntil must be a valid ISO date string");
                     }
                     parsedOccupiedUntil = candidate;
                 }
@@ -579,34 +587,36 @@ let RoomsService = RoomsService_1 = class RoomsService {
             const isMarkingOccupied = normalizedStatus === client_1.RoomStatus.OCCUPIED;
             this.logger.log(`[RoomsService.update] isMarkingOccupied=${isMarkingOccupied} for room ${id}`);
             if (isMarkingOccupied) {
-                const normalizedTenantName = typeof tenantName === 'string' ? tenantName.trim() : '';
-                const normalizedTenantPhone = typeof tenantPhone === 'string' ? tenantPhone.trim() : '';
-                const incomingBookingSource = typeof bookingSource === 'string' ? bookingSource.trim() : '';
-                const normalizedBrokerName = typeof brokerName === 'string' ? brokerName.trim() : '';
+                const normalizedTenantName = typeof tenantName === "string" ? tenantName.trim() : "";
+                const normalizedTenantPhone = typeof tenantPhone === "string" ? tenantPhone.trim() : "";
+                const incomingBookingSource = typeof bookingSource === "string" ? bookingSource.trim() : "";
+                const normalizedBrokerName = typeof brokerName === "string" ? brokerName.trim() : "";
                 const validationErrors = [];
                 if (tenantName === undefined || !normalizedTenantName) {
-                    validationErrors.push('tenantName is required when marking room occupied');
+                    validationErrors.push("tenantName is required when marking room occupied");
                 }
                 if (tenantPhone === undefined || !normalizedTenantPhone) {
-                    validationErrors.push('tenantPhone is required when marking room occupied');
+                    validationErrors.push("tenantPhone is required when marking room occupied");
                 }
                 if (bookingSource === undefined || !incomingBookingSource) {
-                    validationErrors.push('bookingSource is required when marking room occupied');
+                    validationErrors.push("bookingSource is required when marking room occupied");
                 }
-                if (occupiedUntil === undefined || parsedOccupiedUntil === null || !parsedOccupiedUntil) {
-                    validationErrors.push('occupiedUntil is required when marking room occupied');
+                if (occupiedUntil === undefined ||
+                    parsedOccupiedUntil === null ||
+                    !parsedOccupiedUntil) {
+                    validationErrors.push("occupiedUntil is required when marking room occupied");
                 }
                 if (incomingBookingSource &&
                     incomingBookingSource !== client_1.BookingSource.WALK_IN &&
                     incomingBookingSource !== client_1.BookingSource.BROKER) {
-                    validationErrors.push(`bookingSource must be one of: ${Object.values(client_1.BookingSource).join(', ')}`);
+                    validationErrors.push(`bookingSource must be one of: ${Object.values(client_1.BookingSource).join(", ")}`);
                 }
                 if (incomingBookingSource === client_1.BookingSource.BROKER &&
                     !normalizedBrokerName) {
-                    validationErrors.push('brokerName is required when bookingSource is BROKER');
+                    validationErrors.push("brokerName is required when bookingSource is BROKER");
                 }
                 if (validationErrors.length > 0) {
-                    throw new common_1.BadRequestException(validationErrors.join('; '));
+                    throw new common_1.BadRequestException(validationErrors.join("; "));
                 }
                 const room = await this.prisma.room.findUnique({
                     where: { id },
@@ -617,7 +627,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                 }
                 this.logger.log(`[RoomsService.update][occupy:${id}] Step 1 - validating roomId`);
                 if (!id || !id.trim()) {
-                    throw new common_1.BadRequestException('roomId is invalid');
+                    throw new common_1.BadRequestException("roomId is invalid");
                 }
                 this.logger.log(`[RoomsService.update][occupy:${id}] Step 2 - upsert user by phone ${normalizedTenantPhone}`);
                 console.log("START TRANSACTION");
@@ -630,16 +640,16 @@ let RoomsService = RoomsService_1 = class RoomsService {
                     create: {
                         phone: normalizedTenantPhone,
                         firstName: normalizedTenantName,
-                        lastName: '',
-                        password: '',
-                        role: 'TENANT',
+                        lastName: "",
+                        password: "",
+                        role: "TENANT",
                         isActive: true,
                         isApproved: true,
-                        accountStatus: 'ACTIVE',
+                        accountStatus: "ACTIVE",
                     },
                 });
                 if (!user?.id) {
-                    throw new common_1.BadRequestException('Failed to resolve valid tenant user');
+                    throw new common_1.BadRequestException("Failed to resolve valid tenant user");
                 }
                 this.logger.log(`[RoomsService.update][occupy:${id}] Step 3 - checking active booking duplication`);
                 const existingBooking = await this.prisma.booking.findFirst({
@@ -661,12 +671,13 @@ let RoomsService = RoomsService_1 = class RoomsService {
                     },
                 });
                 if (existingBooking) {
-                    throw new common_1.BadRequestException('Room already occupied');
+                    throw new common_1.BadRequestException("Room already occupied");
                 }
                 const moveInDate = new Date();
                 const moveOutDate = parsedOccupiedUntil;
                 const validatedBookingSource = incomingBookingSource;
                 this.logger.log(`[RoomsService.update][occupy:${id}] Step 4 - creating booking + updating room in atomic transaction`);
+                const rentAmount = Number(room.rent ?? 0);
                 console.log("STEP 2: booking");
                 console.log("STEP 3: room update");
                 const [booking] = await this.prisma.$transaction([
@@ -683,6 +694,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                             brokerName: validatedBookingSource === client_1.BookingSource.BROKER
                                 ? normalizedBrokerName
                                 : null,
+                            rentAmount: new library_1.Decimal(rentAmount),
                         },
                         select: {
                             id: true,
@@ -706,7 +718,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                     }),
                 ]);
                 if (!booking.userId || !booking.roomId) {
-                    throw new common_1.BadRequestException('Booking creation returned invalid booking.userId or booking.roomId');
+                    throw new common_1.BadRequestException("Booking creation returned invalid booking.userId or booking.roomId");
                 }
                 this.logger.log(`[RoomsService.update][occupy:${id}] Step 5 - fetching updated room`);
                 const updatedRoom = await this.prisma.room.findUnique({
@@ -721,7 +733,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                     ...updatedRoom,
                     booking,
                     user,
-                    message: 'Room marked as occupied successfully',
+                    message: "Room marked as occupied successfully",
                 };
             }
             if (amenities !== undefined) {
@@ -748,7 +760,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                 }
                 const imageRows = [
                     ...(images?.map((img) => ({
-                        url: img.url || '',
+                        url: img.url || "",
                         order: img.order || 0,
                         caption: img.caption || undefined,
                     })) ?? []),
@@ -757,7 +769,7 @@ let RoomsService = RoomsService_1 = class RoomsService {
                             {
                                 url: videoUrl,
                                 order: 999,
-                                caption: 'ROOM_VIDEO',
+                                caption: "ROOM_VIDEO",
                             },
                         ]
                         : []),
@@ -824,7 +836,8 @@ let RoomsService = RoomsService_1 = class RoomsService {
             });
         }
         catch (error) {
-            if (error instanceof common_1.NotFoundException || error instanceof common_1.BadRequestException) {
+            if (error instanceof common_1.NotFoundException ||
+                error instanceof common_1.BadRequestException) {
                 throw error;
             }
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -864,10 +877,14 @@ let RoomsService = RoomsService_1 = class RoomsService {
         const rulesMap = await this.getRulesByRoomIds(normalizedRooms.map((room) => room.id));
         const now = new Date();
         const mappedRooms = normalizedRooms.map((room) => {
-            let availabilityStatus = String(room.status || "AVAILABLE").toUpperCase();
+            const effectiveRent = room.rent ?? room.managementRent;
+            const effectiveStatus = room.status ?? room.managementStatus;
+            const effectiveIsAvailable = room.isAvailable ?? room.managementIsAvailable;
+            const effectiveOccupiedUntil = room.occupiedUntil ?? room.managementOccupiedUntil;
+            let availabilityStatus = String(effectiveStatus || "AVAILABLE").toUpperCase();
             let availableFrom = null;
-            const occupiedUntilDate = room.occupiedUntil
-                ? new Date(room.occupiedUntil)
+            const occupiedUntilDate = effectiveOccupiedUntil
+                ? new Date(effectiveOccupiedUntil)
                 : null;
             if (occupiedUntilDate &&
                 !Number.isNaN(occupiedUntilDate.getTime()) &&
@@ -877,6 +894,10 @@ let RoomsService = RoomsService_1 = class RoomsService {
             }
             return {
                 ...room,
+                rent: effectiveRent,
+                status: effectiveStatus,
+                isAvailable: effectiveIsAvailable,
+                occupiedUntil: effectiveOccupiedUntil,
                 availabilityStatus,
                 availableFrom,
                 availableBy: occupiedUntilDate && occupiedUntilDate > now

@@ -107,6 +107,15 @@ model Room {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   deletedAt     DateTime?
+  
+  // Management-specific fields (used by Admin Room Management & Tenant)
+  // These are separate from the listing fields below
+  managementRent      Decimal?  @db.Decimal(10, 2)
+  managementStatus    RoomStatus? @default(AVAILABLE)
+  managementIsAvailable Boolean? @default(true)
+  managementOccupiedUntil DateTime?
+  
+  // Relations
   bookings      Booking[]
   amenities     RoomAmenity[]
   images        RoomImage[]
@@ -179,6 +188,8 @@ model Booking {
   deletedAt           DateTime?
   bookingSource       BookingSource          @default(WALK_IN)
   brokerName          String?
+  // Tenant-specific rent - overrides room.rent for this booking
+  rentAmount          Decimal?               @db.Decimal(10, 2)
   agreement           Agreement?
   statusHistory       BookingStatusHistory[]
   room                Room                   @relation(fields: [roomId], references: [id])

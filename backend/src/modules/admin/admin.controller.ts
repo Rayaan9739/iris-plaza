@@ -196,9 +196,9 @@ export class AdminController {
       newRoomId?: string;
       roomChangeDate?: string;
       extendOccupiedUntil?: string;
-      newRent?: number;
       bookingSource?: string;
       brokerName?: string;
+      newRent?: number;
     },
   ) {
     return this.executeAdminAction(

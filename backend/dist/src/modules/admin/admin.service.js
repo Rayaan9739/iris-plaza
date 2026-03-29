@@ -45,6 +45,10 @@ let AdminService = class AdminService {
             createdAt: true,
             updatedAt: true,
             deletedAt: true,
+            managementRent: true,
+            managementStatus: true,
+            managementIsAvailable: true,
+            managementOccupiedUntil: true,
             media: { orderBy: { createdAt: "asc" } },
             images: { orderBy: { order: "asc" } },
             amenities: { include: { amenity: true } },
@@ -111,11 +115,15 @@ let AdminService = class AdminService {
             return rooms;
         }
         return rooms.map((room) => {
-            const derivedOccupancy = this.deriveRoomOccupancyState(room.occupiedUntil, room.status);
+            const effectiveOccupiedUntil = room.managementOccupiedUntil ?? room.occupiedUntil;
+            const effectiveStatus = room.managementStatus ?? room.status;
+            const effectiveIsAvailable = room.managementIsAvailable ?? room.isAvailable;
+            const derivedOccupancy = this.deriveRoomOccupancyState(effectiveOccupiedUntil, effectiveStatus);
             return {
                 ...room,
                 status: derivedOccupancy.status,
                 isAvailable: derivedOccupancy.isAvailable,
+                occupiedUntil: effectiveOccupiedUntil,
             };
         });
     }
@@ -369,7 +377,7 @@ let AdminService = class AdminService {
                 const bookingSource = this.normalizeBookingSource(booking.bookingSource);
                 const brokerName = this.normalizeBrokerName(bookingSource, booking.brokerName);
                 const derivedRoomOccupancy = booking.room
-                    ? this.deriveRoomOccupancyState(booking.room.occupiedUntil, booking.room.status)
+                    ? this.deriveRoomOccupancyState(booking.room.managementOccupiedUntil ?? booking.room.occupiedUntil, booking.room.managementStatus ?? booking.room.status)
                     : null;
                 return {
                     id: booking.user.id,
@@ -384,12 +392,17 @@ let AdminService = class AdminService {
                     room: booking.room
                         ? {
                             ...booking.room,
+                            rent: Number(booking.rentAmount ??
+                                booking.room.managementRent ??
+                                booking.room.rent ?? 0),
                             status: derivedRoomOccupancy?.status ?? booking.room.status,
                             isAvailable: derivedRoomOccupancy?.isAvailable ?? booking.room.isAvailable,
                         }
                         : booking.room,
                     moveInDate: booking.moveInDate,
-                    rent: booking.room.rent,
+                    rent: Number(booking.rentAmount ??
+                        booking.room.managementRent ??
+                        booking.room.rent ?? 0),
                     status: booking.status,
                     user: booking.user,
                     bookingSource,
@@ -456,8 +469,13 @@ let AdminService = class AdminService {
                 id: booking.room.id,
                 name: booking.room.name,
                 floor: booking.room.floor,
-                rent: booking.room.rent,
+                rent: Number(booking.rentAmount ??
+                    booking.room.managementRent ??
+                    booking.room.rent ?? 0),
                 deposit: booking.room.deposit,
+                status: booking.room.managementStatus ?? booking.room.status,
+                isAvailable: booking.room.managementIsAvailable ?? booking.room.isAvailable,
+                occupiedUntil: booking.room.managementOccupiedUntil ?? booking.room.occupiedUntil,
             },
             agreement: booking.agreement ? {
                 id: booking.agreement.id,
@@ -519,21 +537,9 @@ let AdminService = class AdminService {
         });
     }
     async updateTenant(userId, data) {
-        const normalizedNewRent = data.newRent === undefined ? undefined : Number(data.newRent);
-        if (normalizedNewRent !== undefined &&
-            (!Number.isFinite(normalizedNewRent) || normalizedNewRent <= 0)) {
-            throw new common_1.BadRequestException("Rent must be greater than 0");
-        }
-        const requestedRoomId = String(data.updateRoomId ?? data.newRoomId ?? "").trim();
+        const requestedRoomId = String(data.newRoomId ?? "").trim();
         const parsedRoomChangeDate = this.parseDateInput(data.roomChangeDate, "roomChangeDate");
-        const parsedExtendOccupiedUntil = this.parseDateInput(data.extendOccupiedUntil, "extendOccupiedUntil");
-        console.log("UPDATE TENANT INPUT:", {
-            userId,
-            ...data,
-            requestedRoomId,
-            parsedRoomChangeDate,
-            parsedExtendOccupiedUntil,
-        });
+        const parsedMoveOutDate = this.parseDateInput(data.moveOutDate, "moveOutDate");
         try {
             const booking = await this.prisma.booking.findFirst({
                 where: {
@@ -556,6 +562,10 @@ let AdminService = class AdminService {
                             occupiedUntil: true,
                             availableAt: true,
                             videoUrl: true,
+                            managementRent: true,
+                            managementStatus: true,
+                            managementIsAvailable: true,
+                            managementOccupiedUntil: true,
                         },
                     },
                     user: true,
@@ -575,8 +585,12 @@ let AdminService = class AdminService {
             if (isRoomChangeRequested && !parsedRoomChangeDate) {
                 throw new common_1.BadRequestException("roomChangeDate is required when assigning a different room");
             }
-            await this.ensureRoomTransfersTable();
+            if (!isRoomChangeRequested && parsedRoomChangeDate) {
+                throw new common_1.BadRequestException("roomChangeDate can only be provided when assigning a different room");
+            }
             const transactionResult = await this.prisma.$transaction(async (tx) => {
+                let bookingIdForResponse = booking.id;
+                let createdNewTransferBooking = false;
                 if (data.firstName !== undefined ||
                     data.lastName !== undefined ||
                     data.phone !== undefined) {
@@ -586,56 +600,49 @@ let AdminService = class AdminService {
                     if (data.lastName !== undefined)
                         userUpdate.lastName = data.lastName;
                     if (data.phone !== undefined) {
+                        const normalizedPhone = String(data.phone || "").trim();
+                        if (!normalizedPhone) {
+                            throw new common_1.BadRequestException("Phone number cannot be empty");
+                        }
                         const existingUser = await tx.user.findFirst({
                             where: {
-                                phone: data.phone,
+                                phone: normalizedPhone,
                                 NOT: { id: userId },
                             },
                         });
                         if (existingUser) {
                             throw new common_1.BadRequestException("Phone number is already in use by another user");
                         }
-                        userUpdate.phone = data.phone;
+                        userUpdate.phone = normalizedPhone;
                     }
                     await tx.user.update({
                         where: { id: userId },
                         data: userUpdate,
                     });
                 }
+                const normalizedCurrentBookingSource = this.normalizeBookingSource(booking.bookingSource);
+                const shouldUpdateBookingSource = data.bookingSource !== undefined || data.brokerName !== undefined;
+                let nextBookingSource = normalizedCurrentBookingSource;
                 if (data.bookingSource !== undefined) {
-                    const normalizedSource = this.normalizeBookingSource(data.bookingSource || null);
-                    const normalizedBrokerName = this.normalizeBrokerName(normalizedSource, data.brokerName);
-                    await tx.booking.update({
-                        where: { id: booking.id },
-                        data: {
-                            bookingSource: normalizedSource,
-                            brokerName: normalizedBrokerName,
-                        },
-                    });
+                    const normalizedInput = String(data.bookingSource || "")
+                        .trim()
+                        .toUpperCase()
+                        .replace(/[\s-]+/g, "_");
+                    if (normalizedInput === "BROKER") {
+                        nextBookingSource = client_1.BookingSource.BROKER;
+                    }
+                    else if (normalizedInput === "WALK_IN" ||
+                        normalizedInput === "WALKIN") {
+                        nextBookingSource = client_1.BookingSource.WALK_IN;
+                    }
+                    else {
+                        throw new common_1.BadRequestException("bookingSource must be either WALK_IN or BROKER");
+                    }
                 }
-                const currentOccupiedUntil = booking.moveOutDate ??
-                    booking.endDate ??
-                    booking.room?.occupiedUntil ??
-                    null;
-                const newDate = parsedExtendOccupiedUntil ?? currentOccupiedUntil;
-                let finalMoveOutDate = newDate;
-                if (parsedExtendOccupiedUntil !== undefined) {
-                    const derivedCurrentRoomOccupancy = this.deriveRoomOccupancyState(newDate);
-                    await tx.booking.update({
-                        where: { id: booking.id },
-                        data: {
-                            moveOutDate: newDate ?? null,
-                            endDate: newDate ?? null,
-                        },
-                    });
-                    await tx.room.update({
-                        where: { id: currentRoomId },
-                        data: {
-                            status: derivedCurrentRoomOccupancy.status,
-                            isAvailable: derivedCurrentRoomOccupancy.isAvailable,
-                            occupiedUntil: newDate ?? null,
-                        },
-                    });
+                const brokerNameInput = data.brokerName !== undefined ? data.brokerName : booking.brokerName;
+                const nextBrokerName = this.normalizeBrokerName(nextBookingSource, brokerNameInput);
+                if (nextBookingSource === client_1.BookingSource.BROKER && !nextBrokerName) {
+                    throw new common_1.BadRequestException("brokerName is required when bookingSource is BROKER");
                 }
                 if (isRoomChangeRequested && targetRoomId && parsedRoomChangeDate) {
                     const moveDateUtc = this.toStartOfUtcDay(parsedRoomChangeDate);
@@ -646,124 +653,96 @@ let AdminService = class AdminService {
                         where: { id: targetRoomId },
                         select: {
                             id: true,
-                            name: true,
-                            status: true,
-                            isAvailable: true,
-                            occupiedUntil: true,
                         },
                     });
                     if (!targetRoom) {
                         throw new common_1.NotFoundException("Target room not found");
                     }
-                    const targetStatus = String(targetRoom.status || "").toUpperCase();
-                    const targetOccupiedUntil = targetRoom.occupiedUntil
-                        ? this.toStartOfUtcDay(new Date(targetRoom.occupiedUntil))
-                        : null;
-                    if (targetStatus === "OCCUPIED") {
-                        if (!targetOccupiedUntil) {
-                            throw new common_1.BadRequestException("Target room is occupied but has no occupied-until date configured");
-                        }
-                        if (moveDateUtc <= targetOccupiedUntil) {
-                            throw new common_1.BadRequestException(`Target room is occupied until ${targetOccupiedUntil.toISOString().split("T")[0]}. Choose a later move date.`);
-                        }
+                    const oldBookingEndDate = parsedRoomChangeDate;
+                    const newBookingMoveOutDate = parsedMoveOutDate ?? booking.moveOutDate ?? booking.endDate ?? null;
+                    await tx.booking.update({
+                        where: { id: booking.id },
+                        data: {
+                            status: client_1.BookingStatus.EXPIRED,
+                            moveOutDate: oldBookingEndDate,
+                            endDate: oldBookingEndDate,
+                            checkoutDate: oldBookingEndDate,
+                        },
+                    });
+                    await tx.bookingStatusHistory.create({
+                        data: {
+                            bookingId: booking.id,
+                            status: client_1.BookingStatus.EXPIRED,
+                            comment: `Room transfer completed to room ${targetRoomId}`,
+                        },
+                    });
+                    const newBooking = await tx.booking.create({
+                        data: {
+                            userId,
+                            roomId: targetRoomId,
+                            status: booking.status,
+                            startDate: parsedRoomChangeDate,
+                            moveInDate: parsedRoomChangeDate,
+                            moveOutDate: newBookingMoveOutDate,
+                            endDate: newBookingMoveOutDate,
+                            bookingFee: booking.bookingFee,
+                            bookingFeePaid: booking.bookingFeePaid,
+                            expiresAt: booking.expiresAt,
+                            bookingSource: nextBookingSource,
+                            brokerName: nextBrokerName,
+                        },
+                    });
+                    await tx.bookingStatusHistory.create({
+                        data: {
+                            bookingId: newBooking.id,
+                            status: newBooking.status,
+                            comment: `Booking created from room transfer from room ${currentRoomId}`,
+                        },
+                    });
+                    bookingIdForResponse = newBooking.id;
+                    createdNewTransferBooking = true;
+                }
+                else {
+                    const bookingUpdateData = {};
+                    if (shouldUpdateBookingSource) {
+                        bookingUpdateData.bookingSource = nextBookingSource;
+                        bookingUpdateData.brokerName = nextBrokerName;
                     }
-                    else if (targetStatus === "RESERVED") {
-                        throw new common_1.BadRequestException("Target room is reserved. Please pick another room.");
+                    if (parsedMoveOutDate !== undefined) {
+                        bookingUpdateData.moveOutDate = parsedMoveOutDate;
+                        bookingUpdateData.endDate = parsedMoveOutDate;
                     }
-                    const conflictingTransfers = await tx.$queryRaw `
-            SELECT id
-            FROM room_transfers
-            WHERE to_room_id = ${targetRoomId}
-              AND status = 'PENDING'
-            LIMIT 1
-          `;
-                    if (conflictingTransfers.length > 0) {
-                        throw new common_1.BadRequestException("Another pending future transfer is already assigned to this room");
+                    if (data.newRent !== undefined) {
+                        bookingUpdateData.rentAmount = new client_1.Prisma.Decimal(data.newRent);
                     }
-                    const isImmediateTransfer = moveDateUtc <= todayUtc;
-                    if (isImmediateTransfer) {
-                        await tx.room.update({
-                            where: { id: currentRoomId },
-                            data: {
-                                status: "AVAILABLE",
-                                isAvailable: true,
-                                occupiedFrom: null,
-                                occupiedUntil: null,
-                            },
-                        });
-                        await tx.room.update({
-                            where: { id: targetRoomId },
-                            data: {
-                                status: "OCCUPIED",
-                                isAvailable: false,
-                                occupiedFrom: parsedRoomChangeDate,
-                                occupiedUntil: finalMoveOutDate,
-                                availableAt: null,
-                            },
-                        });
+                    if (Object.keys(bookingUpdateData).length > 0) {
                         await tx.booking.update({
                             where: { id: booking.id },
-                            data: {
-                                roomId: targetRoomId,
-                                moveInDate: parsedRoomChangeDate,
-                                startDate: parsedRoomChangeDate,
-                                moveOutDate: finalMoveOutDate,
-                                endDate: finalMoveOutDate,
-                            },
+                            data: bookingUpdateData,
                         });
-                        await tx.$executeRaw `
-              DELETE FROM room_transfers
-              WHERE booking_id = ${booking.id}
-                AND status = 'PENDING'
-            `;
                     }
-                    else {
-                        await tx.$executeRaw `
-              DELETE FROM room_transfers
-              WHERE booking_id = ${booking.id}
-                AND status = 'PENDING'
-            `;
-                        await tx.$executeRaw `
-              INSERT INTO room_transfers
-                (booking_id, user_id, from_room_id, to_room_id, effective_date, desired_move_out_date, status, created_at, updated_at)
-              VALUES
-                (${booking.id}, ${userId}, ${currentRoomId}, ${targetRoomId}, ${parsedRoomChangeDate}, ${finalMoveOutDate}, 'PENDING', NOW(), NOW())
-            `;
+                    const roomManagementUpdate = {};
+                    if (data.extendOccupiedUntil) {
+                        roomManagementUpdate.managementOccupiedUntil = new Date(data.extendOccupiedUntil);
+                        roomManagementUpdate.managementStatus = "OCCUPIED";
+                        roomManagementUpdate.managementIsAvailable = false;
+                    }
+                    if (Object.keys(roomManagementUpdate).length > 0) {
                         await tx.room.update({
                             where: { id: currentRoomId },
-                            data: {
-                                status: "OCCUPIED",
-                                isAvailable: false,
-                                occupiedUntil: parsedRoomChangeDate,
-                            },
+                            data: roomManagementUpdate,
                         });
-                        if (targetStatus === "AVAILABLE") {
-                            await tx.room.update({
-                                where: { id: targetRoomId },
-                                data: {
-                                    status: "RESERVED",
-                                    isAvailable: false,
-                                    availableAt: parsedRoomChangeDate,
-                                },
-                            });
-                        }
                     }
                 }
-                if (normalizedNewRent !== undefined) {
-                    const rentRoomId = isRoomChangeRequested && targetRoomId ? targetRoomId : currentRoomId;
-                    await tx.room.update({
-                        where: { id: rentRoomId },
-                        data: { rent: normalizedNewRent },
-                    });
-                }
                 return {
-                    bookingId: booking.id,
+                    bookingId: bookingIdForResponse,
+                    createdNewTransferBooking,
                 };
             }, {
                 maxWait: 10000,
                 timeout: 20000,
             });
-            const [updatedUser, updatedBooking, pendingTransfers] = await Promise.all([
+            const [updatedUser, updatedBooking] = await Promise.all([
                 this.prisma.user.findUnique({
                     where: { id: userId },
                 }),
@@ -785,37 +764,22 @@ let AdminService = class AdminService {
                                 occupiedUntil: true,
                                 availableAt: true,
                                 videoUrl: true,
+                                managementRent: true,
+                                managementStatus: true,
+                                managementIsAvailable: true,
+                                managementOccupiedUntil: true,
                             },
                         },
                     },
                 }),
-                this.prisma.$queryRaw `
-          SELECT id, booking_id, from_room_id, to_room_id, effective_date, status
-          FROM room_transfers
-          WHERE booking_id = ${transactionResult.bookingId}
-            AND status = 'PENDING'
-          ORDER BY effective_date ASC
-          LIMIT 1
-        `,
             ]);
-            const scheduledTransfer = pendingTransfers[0]
-                ? {
-                    id: String(pendingTransfers[0].id),
-                    bookingId: pendingTransfers[0].booking_id,
-                    fromRoomId: pendingTransfers[0].from_room_id,
-                    toRoomId: pendingTransfers[0].to_room_id,
-                    effectiveDate: pendingTransfers[0].effective_date,
-                    status: pendingTransfers[0].status,
-                }
-                : null;
             return {
                 success: true,
                 user: updatedUser,
                 room: updatedBooking?.room,
                 booking: updatedBooking,
-                scheduledTransfer,
-                message: scheduledTransfer
-                    ? "Tenant updated. Room transfer has been scheduled."
+                message: transactionResult.createdNewTransferBooking
+                    ? "Tenant updated. A new transfer booking has been created."
                     : "Tenant updated successfully",
             };
         }

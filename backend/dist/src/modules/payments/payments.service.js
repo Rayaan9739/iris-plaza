@@ -41,6 +41,10 @@ let PaymentsService = class PaymentsService {
             createdAt: true,
             updatedAt: true,
             deletedAt: true,
+            managementRent: true,
+            managementStatus: true,
+            managementIsAvailable: true,
+            managementOccupiedUntil: true,
             media: { orderBy: { createdAt: "asc" } },
         };
     }
@@ -71,7 +75,7 @@ let PaymentsService = class PaymentsService {
     }
     async getActiveApprovedBooking(userId) {
         return this.prisma.booking.findFirst({
-            where: { userId, status: "APPROVED" },
+            where: { userId, status: { in: ["APPROVED", "APPROVED_PENDING_PAYMENT"] } },
             include: { room: { select: this.roomSafeSelect } },
             orderBy: { createdAt: "desc" },
         });
@@ -93,7 +97,7 @@ let PaymentsService = class PaymentsService {
         if (firstDue > now) {
             return;
         }
-        const baseRent = Number(booking.room?.rent ?? 0);
+        const baseRent = Number(booking.rentAmount ?? booking.room?.rent ?? 0);
         let cursor = new Date(firstDue);
         while (cursor <= now) {
             const month = this.monthKey(cursor);
@@ -350,7 +354,7 @@ let PaymentsService = class PaymentsService {
         if (!booking) {
             return;
         }
-        const baseRent = Number(booking.room?.rent ?? 0);
+        const baseRent = Number(booking.rentAmount ?? booking.room?.rent ?? 0);
         const nextAmount = Math.max(0, baseRent + newPendingAmount);
         await this.prisma.payment.create({
             data: {
@@ -594,7 +598,7 @@ let PaymentsService = class PaymentsService {
             }),
         ]);
         const approvedBooking = await this.getActiveApprovedBooking(userId);
-        const baseRent = approvedBooking ? Number(approvedBooking.room.rent) : 0;
+        const baseRent = approvedBooking ? Number(approvedBooking.rentAmount ?? approvedBooking.room.rent ?? 0) : 0;
         const currentMonthRent = currentPayment
             ? Number(currentPayment.rentAmount ?? currentPayment.amount ?? 0)
             : baseRent;
