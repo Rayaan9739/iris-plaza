@@ -9,8 +9,6 @@ export declare class UsersController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -21,11 +19,10 @@ export declare class UsersController {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         role: import(".prisma/client").$Enums.UserRole;
@@ -37,6 +34,9 @@ export declare class UsersController {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
     updateProfile(req: any, updateProfileDto: UpdateProfileDto): Promise<{
@@ -45,8 +45,6 @@ export declare class UsersController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -57,12 +55,11 @@ export declare class UsersController {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         password: string | null;
@@ -75,6 +72,9 @@ export declare class UsersController {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
     patchProfile(req: any, updateProfileDto: UpdateProfileDto): Promise<{
@@ -83,8 +83,6 @@ export declare class UsersController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -95,12 +93,11 @@ export declare class UsersController {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         password: string | null;
@@ -113,17 +110,20 @@ export declare class UsersController {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
     getTenant(id: string): Promise<{
         bookings: ({
             room: {
                 id: string;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                name: string;
                 deletedAt: Date | null;
+                name: string;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 type: import(".prisma/client").$Enums.RoomType;
                 description: string | null;
                 floor: number;
@@ -142,20 +142,20 @@ export declare class UsersController {
             };
         } & {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             userId: string;
-            roomId: string;
-            startDate: Date;
-            endDate: Date | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
+            roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            startDate: Date;
+            endDate: Date | null;
             checkoutDate: Date | null;
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
@@ -165,8 +165,6 @@ export declare class UsersController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -177,11 +175,10 @@ export declare class UsersController {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         role: import(".prisma/client").$Enums.UserRole;
@@ -193,6 +190,9 @@ export declare class UsersController {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
 }

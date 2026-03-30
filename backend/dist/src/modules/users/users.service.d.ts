@@ -9,8 +9,6 @@ export declare class UsersService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -21,11 +19,10 @@ export declare class UsersService {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         role: import(".prisma/client").$Enums.UserRole;
@@ -37,6 +34,9 @@ export declare class UsersService {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
     updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<{
@@ -45,8 +45,6 @@ export declare class UsersService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -57,12 +55,11 @@ export declare class UsersService {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
     } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         password: string | null;
@@ -75,17 +72,20 @@ export declare class UsersService {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
     getTenantById(tenantId: string): Promise<{
         bookings: ({
             room: {
                 id: string;
-                status: import(".prisma/client").$Enums.RoomStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                name: string;
                 deletedAt: Date | null;
+                name: string;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 type: import(".prisma/client").$Enums.RoomType;
                 description: string | null;
                 floor: number;
@@ -104,20 +104,20 @@ export declare class UsersService {
             };
         } & {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
             createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
             userId: string;
-            roomId: string;
-            startDate: Date;
-            endDate: Date | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
+            roomId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            startDate: Date;
+            endDate: Date | null;
             checkoutDate: Date | null;
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
@@ -127,8 +127,6 @@ export declare class UsersService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
             dateOfBirth: Date | null;
             gender: string | null;
             occupation: string | null;
@@ -139,11 +137,10 @@ export declare class UsersService {
             emergencyRelation: string | null;
             kycStatus: string;
             kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
         } | null;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         email: string | null;
         phone: string;
         role: import(".prisma/client").$Enums.UserRole;
@@ -155,6 +152,9 @@ export declare class UsersService {
         isEmailVerified: boolean;
         isPhoneVerified: boolean;
         emailVerifyToken: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         dob: Date | null;
     }>;
 }

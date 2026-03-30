@@ -1,6 +1,7 @@
 export declare class UpdateProfileDto {
     firstName?: string;
     lastName?: string;
+    dob?: string;
     dateOfBirth?: string;
     gender?: string;
     occupation?: string;
@@ -10,5 +11,4 @@ export declare class UpdateProfileDto {
     emergencyPhone?: string;
     emergencyRelation?: string;
     phone?: string;
-    password?: string;
 }

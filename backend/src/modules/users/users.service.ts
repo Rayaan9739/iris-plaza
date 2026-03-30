@@ -51,18 +51,19 @@ export class UsersService {
     if (dob !== undefined) {
       updateData.dob = dob ? new Date(dob) : null;
     }
-      where: { id: userId },
+
     return this.prisma.user.update({
       where: { id: userId },
       data: {
         ...updateData,
-        ...(hashedPassword ? { password: hashedPassword } : {}),
         tenantProfile: {
           update: {
             emergencyName,
             emergencyPhone,
             emergencyRelation,
-            ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}),
+            ...(dateOfBirth !== undefined
+              ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }
+              : {}),
             ...profileData,
           },
         },

@@ -12,7 +12,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
-const bcrypt = require("bcrypt");
 let UsersService = class UsersService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -35,22 +34,27 @@ let UsersService = class UsersService {
         if (!user) {
             throw new common_1.NotFoundException("User not found");
         }
-        const { firstName, lastName, phone, password, emergencyName, emergencyPhone, emergencyRelation, ...profileData } = updateProfileDto;
-        const hashedPassword = password
-            ? await bcrypt.hash(password, 12)
-            : undefined;
+        const { firstName, lastName, phone, dob, dateOfBirth, emergencyName, emergencyPhone, emergencyRelation, ...profileData } = updateProfileDto;
+        const updateData = {
+            firstName,
+            lastName,
+            phone,
+        };
+        if (dob !== undefined) {
+            updateData.dob = dob ? new Date(dob) : null;
+        }
         return this.prisma.user.update({
             where: { id: userId },
             data: {
-                firstName,
-                lastName,
-                phone,
-                ...(hashedPassword ? { password: hashedPassword } : {}),
+                ...updateData,
                 tenantProfile: {
                     update: {
                         emergencyName,
                         emergencyPhone,
                         emergencyRelation,
+                        ...(dateOfBirth !== undefined
+                            ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }
+                            : {}),
                         ...profileData,
                     },
                 },
