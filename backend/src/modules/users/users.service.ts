@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { UpdateProfileDto } from "./dto/user.dto";
-import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class UsersService {
@@ -34,29 +33,36 @@ export class UsersService {
       firstName,
       lastName,
       phone,
-      password,
+      dob,
+      dateOfBirth,
       emergencyName,
       emergencyPhone,
       emergencyRelation,
       ...profileData
     } = updateProfileDto;
 
-    const hashedPassword = password
-      ? await bcrypt.hash(password, 12)
-      : undefined;
+    const updateData: any = {
+      firstName,
+      lastName,
+      phone,
+    };
 
+    // Handle dob on the User model
+    if (dob !== undefined) {
+      updateData.dob = dob ? new Date(dob) : null;
+    }
+      where: { id: userId },
     return this.prisma.user.update({
       where: { id: userId },
       data: {
-        firstName,
-        lastName,
-        phone,
+        ...updateData,
         ...(hashedPassword ? { password: hashedPassword } : {}),
         tenantProfile: {
           update: {
             emergencyName,
             emergencyPhone,
             emergencyRelation,
+            ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}),
             ...profileData,
           },
         },

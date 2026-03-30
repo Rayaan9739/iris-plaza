@@ -21,6 +21,11 @@ export class UpdateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()
+  dob?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
   dateOfBirth?: string;
 
   @ApiPropertyOptional()
@@ -62,10 +67,5 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   phone?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MinLength(8)
-  password?: string;
 }
+// Removed password field - DOB is used for authentication instead
