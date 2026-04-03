@@ -8,10 +8,10 @@ export declare class DocumentsController {
     getMyDocuments(req: any): Promise<({
         booking: {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            createdAt: Date;
-            updatedAt: Date;
             userId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            updatedAt: Date;
+            deletedAt: Date | null;
             roomId: string;
             startDate: Date;
             endDate: Date | null;
@@ -21,37 +21,40 @@ export declare class DocumentsController {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
+            createdAt: Date;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
+            tenantType: import(".prisma/client").$Enums.TenantType;
+            expectedMoveIn: Date | null;
+            bookingDate: Date | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
         } | null;
     } & {
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     })[]>;
     getMyDocumentsAlias(req: any): Promise<({
         booking: {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            createdAt: Date;
-            updatedAt: Date;
             userId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            updatedAt: Date;
+            deletedAt: Date | null;
             roomId: string;
             startDate: Date;
             endDate: Date | null;
@@ -61,38 +64,41 @@ export declare class DocumentsController {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
+            createdAt: Date;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
+            tenantType: import(".prisma/client").$Enums.TenantType;
+            expectedMoveIn: Date | null;
+            bookingDate: Date | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
         } | null;
     } & {
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     })[]>;
     viewDocument(id: string, req: any, res: Response): Promise<void>;
     findOne(id: string): Promise<{
         booking: {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            createdAt: Date;
-            updatedAt: Date;
             userId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            updatedAt: Date;
+            deletedAt: Date | null;
             roomId: string;
             startDate: Date;
             endDate: Date | null;
@@ -102,16 +108,19 @@ export declare class DocumentsController {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
+            createdAt: Date;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
+            tenantType: import(".prisma/client").$Enums.TenantType;
+            expectedMoveIn: Date | null;
+            bookingDate: Date | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
         } | null;
         user: {
             id: string;
-            createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            createdAt: Date;
             email: string | null;
             phone: string;
             password: string | null;
@@ -128,22 +137,22 @@ export declare class DocumentsController {
         };
     } & {
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     }>;
     uploadFile(file: Express.Multer.File, documentType?: string): Promise<{
         fileUrl: string;
@@ -159,35 +168,36 @@ export declare class DocumentsController {
         fileSize?: number;
         mimeType?: string;
         bookingId?: string;
+        userId?: string;
     }): Promise<{
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     }>;
     findAll(): Promise<({
         booking: ({
             room: {
                 id: string;
-                status: import(".prisma/client").$Enums.RoomStatus;
-                createdAt: Date;
-                updatedAt: Date;
                 name: string;
-                deletedAt: Date | null;
                 type: import(".prisma/client").$Enums.RoomType;
+                status: import(".prisma/client").$Enums.RoomStatus;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                createdAt: Date;
                 description: string | null;
                 floor: number;
                 area: number;
@@ -205,10 +215,10 @@ export declare class DocumentsController {
             };
         } & {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            createdAt: Date;
-            updatedAt: Date;
             userId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            updatedAt: Date;
+            deletedAt: Date | null;
             roomId: string;
             startDate: Date;
             endDate: Date | null;
@@ -218,16 +228,19 @@ export declare class DocumentsController {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
+            createdAt: Date;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
+            tenantType: import(".prisma/client").$Enums.TenantType;
+            expectedMoveIn: Date | null;
+            bookingDate: Date | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
         }) | null;
         user: {
             id: string;
-            createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            createdAt: Date;
             email: string | null;
             phone: string;
             password: string | null;
@@ -244,30 +257,30 @@ export declare class DocumentsController {
         };
     } & {
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     })[]>;
     findPending(): Promise<({
         booking: {
             id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            createdAt: Date;
-            updatedAt: Date;
             userId: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            updatedAt: Date;
+            deletedAt: Date | null;
             roomId: string;
             startDate: Date;
             endDate: Date | null;
@@ -277,16 +290,19 @@ export declare class DocumentsController {
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
             expiresAt: Date | null;
-            deletedAt: Date | null;
+            createdAt: Date;
             bookingSource: import(".prisma/client").$Enums.BookingSource;
             brokerName: string | null;
+            tenantType: import(".prisma/client").$Enums.TenantType;
+            expectedMoveIn: Date | null;
+            bookingDate: Date | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
         } | null;
         user: {
             id: string;
-            createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            createdAt: Date;
             email: string | null;
             phone: string;
             password: string | null;
@@ -303,43 +319,43 @@ export declare class DocumentsController {
         };
     } & {
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     })[]>;
     updateStatus(id: string, body: {
         status: string;
         rejectReason?: string;
     }): Promise<{
         id: string;
-        bookingId: string | null;
-        status: import(".prisma/client").$Enums.DocumentStatus;
-        updatedAt: Date;
-        name: string;
         userId: string;
-        deletedAt: Date | null;
+        bookingId: string | null;
+        name: string;
         type: import(".prisma/client").$Enums.DocumentType;
         fileUrl: string;
         fileName: string | null;
         fileSize: number | null;
         mimeType: string | null;
+        status: import(".prisma/client").$Enums.DocumentStatus;
         rejectReason: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
         uploadedAt: Date;
         reviewedAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
     }>;
 }

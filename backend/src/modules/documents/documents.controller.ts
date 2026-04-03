@@ -155,9 +155,10 @@ export class DocumentsController {
       fileSize?: number;
       mimeType?: string;
       bookingId?: string;
+      userId?: string;
     },
   ) {
-    return this.documentsService.create(req.user.userId, body);
+    return this.documentsService.create(req.user.userId, body, req.user.role);
   }
 
   // Admin endpoints

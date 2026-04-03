@@ -420,6 +420,9 @@ let AdminController = class AdminController {
     async getOccupancyData() {
         return this.adminService.getOccupancyData();
     }
+    async createOfflineTenant(body) {
+        return this.executeAdminAction(() => this.adminService.createOfflineTenant(body), "Failed to create offline tenant");
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
@@ -713,6 +716,17 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getOccupancyData", null);
+__decorate([
+    (0, common_1.Post)("tenants/create-offline"),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({ summary: "Create an offline tenant (active or future booking)" }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "Offline tenant created successfully" }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: "Bad request" }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "createOfflineTenant", null);
 exports.AdminController = AdminController = __decorate([
     (0, swagger_1.ApiTags)("Admin"),
     (0, common_1.Controller)("admin"),

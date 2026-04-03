@@ -710,4 +710,31 @@ export class AdminController {
   async getOccupancyData() {
     return this.adminService.getOccupancyData();
   }
+
+  @Post("tenants/create-offline")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create an offline tenant (active or future booking)" })
+  @ApiResponse({ status: 201, description: "Offline tenant created successfully" })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  async createOfflineTenant(
+    @Body()
+    body: {
+      firstName: string;
+      lastName?: string;
+      phone: string;
+      roomId: string;
+      moveInDate: string;
+      moveOutDate?: string;
+      bookingSource?: string;
+      brokerName?: string;
+      isFutureBooking?: boolean;
+      expectedMoveIn?: string;
+      rentAmount?: number;
+    },
+  ) {
+    return this.executeAdminAction(
+      () => this.adminService.createOfflineTenant(body),
+      "Failed to create offline tenant",
+    );
+  }
 }

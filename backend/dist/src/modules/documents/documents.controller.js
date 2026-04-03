@@ -90,7 +90,7 @@ let DocumentsController = class DocumentsController {
         }
     }
     async create(req, body) {
-        return this.documentsService.create(req.user.userId, body);
+        return this.documentsService.create(req.user.userId, body, req.user.role);
     }
     async findAll() {
         return this.documentsService.findAll();

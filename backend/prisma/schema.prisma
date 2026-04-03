@@ -188,6 +188,9 @@ model Booking {
   deletedAt           DateTime?
   bookingSource       BookingSource          @default(WALK_IN)
   brokerName          String?
+  tenantType          TenantType             @default(ACTIVE)
+  expectedMoveIn      DateTime?
+  bookingDate         DateTime?
   // Tenant-specific rent - overrides room.rent for this booking
   rentAmount          Decimal?               @db.Decimal(10, 2)
   agreement           Agreement?
@@ -489,6 +492,11 @@ enum BookingStatus {
   REJECTED
   CANCELLED
   EXPIRED
+}
+
+enum TenantType {
+  ACTIVE
+  FUTURE
 }
 
 enum DocumentStatus {

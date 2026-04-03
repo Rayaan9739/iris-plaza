@@ -47,11 +47,30 @@ let DocumentsService = class DocumentsService {
             throw new common_1.NotFoundException("Document not found");
         return document;
     }
-    async create(userId, data) {
+    async create(actorUserId, data, actorRole) {
         const mappedType = this.mapDocumentType(data.type);
         const validTypes = ["AADHAAR", "COLLEGE_ID", "TENANT_PHOTO", "ID_CARD", "PROOF_OF_INCOME", "ADDRESS_PROOF", "PHOTO", "AGREEMENT", "OTHER"];
         if (!validTypes.includes(mappedType)) {
             throw new common_1.BadRequestException(`Invalid document type: ${data.type}`);
+        }
+        let targetUserId = actorUserId;
+        if (actorRole === "ADMIN" && data.userId) {
+            targetUserId = data.userId;
+        }
+        if (data.bookingId) {
+            const booking = await this.prisma.booking.findUnique({
+                where: { id: data.bookingId },
+                select: { id: true, userId: true },
+            });
+            if (!booking) {
+                throw new common_1.BadRequestException("Invalid bookingId");
+            }
+            if (actorRole === "ADMIN") {
+                targetUserId = data.userId || booking.userId;
+            }
+            else if (booking.userId !== targetUserId) {
+                throw new common_1.BadRequestException("You can only upload documents for your own booking");
+            }
         }
         return this.prisma.document.create({
             data: {
@@ -62,7 +81,7 @@ let DocumentsService = class DocumentsService {
                 fileSize: data.fileSize,
                 mimeType: data.mimeType,
                 bookingId: data.bookingId,
-                userId,
+                userId: targetUserId,
                 status: (data.status || "SUBMITTED"),
             },
         });

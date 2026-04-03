@@ -22,6 +22,6 @@
     },
     "types": ["node", "multer"]
   },
-  "include": ["src/**/*", "prisma/**/*", "templates/**/*", "prisma.config.ts"],
+  "include": ["src/**/*", "prisma/**/*", "templates/**/*"],
   "exclude": ["node_modules", "dist"]
 }

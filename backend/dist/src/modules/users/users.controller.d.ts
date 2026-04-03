@@ -5,12 +5,11 @@ export declare class UsersController {
     constructor(usersService: UsersService);
     getProfile(req: any): Promise<{
         tenantProfile: {
+            gender: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             dateOfBirth: Date | null;
-            gender: string | null;
             occupation: string | null;
             companyName: string | null;
             monthlyIncome: import("@prisma/client/runtime/library").Decimal | null;
@@ -21,13 +20,15 @@ export declare class UsersController {
             kycVerifiedAt: Date | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
+            userId: string;
         } | null;
-        id: string;
-        email: string | null;
         phone: string;
-        role: import(".prisma/client").$Enums.UserRole;
+        email: string | null;
         firstName: string;
         lastName: string;
+        dob: Date | null;
+        id: string;
+        role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         isApproved: boolean;
         accountStatus: import(".prisma/client").$Enums.AccountStatus;
@@ -37,16 +38,14 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        dob: Date | null;
     }>;
     updateProfile(req: any, updateProfileDto: UpdateProfileDto): Promise<{
         tenantProfile: {
+            gender: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             dateOfBirth: Date | null;
-            gender: string | null;
             occupation: string | null;
             companyName: string | null;
             monthlyIncome: import("@prisma/client/runtime/library").Decimal | null;
@@ -57,15 +56,17 @@ export declare class UsersController {
             kycVerifiedAt: Date | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
+            userId: string;
         } | null;
     } & {
-        id: string;
-        email: string | null;
         phone: string;
-        password: string | null;
-        role: import(".prisma/client").$Enums.UserRole;
+        email: string | null;
         firstName: string;
         lastName: string;
+        dob: Date | null;
+        id: string;
+        password: string | null;
+        role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         isApproved: boolean;
         accountStatus: import(".prisma/client").$Enums.AccountStatus;
@@ -75,16 +76,14 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        dob: Date | null;
     }>;
     patchProfile(req: any, updateProfileDto: UpdateProfileDto): Promise<{
         tenantProfile: {
+            gender: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             dateOfBirth: Date | null;
-            gender: string | null;
             occupation: string | null;
             companyName: string | null;
             monthlyIncome: import("@prisma/client/runtime/library").Decimal | null;
@@ -95,15 +94,17 @@ export declare class UsersController {
             kycVerifiedAt: Date | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
+            userId: string;
         } | null;
     } & {
-        id: string;
-        email: string | null;
         phone: string;
-        password: string | null;
-        role: import(".prisma/client").$Enums.UserRole;
+        email: string | null;
         firstName: string;
         lastName: string;
+        dob: Date | null;
+        id: string;
+        password: string | null;
+        role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         isApproved: boolean;
         accountStatus: import(".prisma/client").$Enums.AccountStatus;
@@ -113,28 +114,45 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        dob: Date | null;
     }>;
     getTenant(id: string): Promise<{
+        tenantProfile: {
+            gender: string | null;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            dateOfBirth: Date | null;
+            occupation: string | null;
+            companyName: string | null;
+            monthlyIncome: import("@prisma/client/runtime/library").Decimal | null;
+            emergencyName: string | null;
+            emergencyPhone: string | null;
+            emergencyRelation: string | null;
+            kycStatus: string;
+            kycVerifiedAt: Date | null;
+            moveInDate: Date | null;
+            moveOutDate: Date | null;
+            userId: string;
+        } | null;
         bookings: ({
             room: {
+                type: import(".prisma/client").$Enums.RoomType;
+                description: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 name: string;
-                status: import(".prisma/client").$Enums.RoomStatus;
-                type: import(".prisma/client").$Enums.RoomType;
-                description: string | null;
+                videoUrl: string | null;
                 floor: number;
                 area: number;
                 rent: import("@prisma/client/runtime/library").Decimal;
                 deposit: import("@prisma/client/runtime/library").Decimal;
+                status: import(".prisma/client").$Enums.RoomStatus;
                 isAvailable: boolean;
-                occupiedFrom: Date | null;
                 occupiedUntil: Date | null;
+                occupiedFrom: Date | null;
                 availableAt: Date | null;
-                videoUrl: string | null;
                 managementRent: import("@prisma/client/runtime/library").Decimal | null;
                 managementStatus: import(".prisma/client").$Enums.RoomStatus | null;
                 managementIsAvailable: boolean | null;
@@ -145,45 +163,31 @@ export declare class UsersController {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            userId: string;
             moveInDate: Date | null;
             moveOutDate: Date | null;
-            roomId: string;
+            userId: string;
+            expiresAt: Date | null;
             status: import(".prisma/client").$Enums.BookingStatus;
+            bookingSource: import(".prisma/client").$Enums.BookingSource;
+            brokerName: string | null;
+            roomId: string;
             startDate: Date;
             endDate: Date | null;
             checkoutDate: Date | null;
             bookingFee: import("@prisma/client/runtime/library").Decimal | null;
             bookingFeePaid: boolean;
-            expiresAt: Date | null;
-            bookingSource: import(".prisma/client").$Enums.BookingSource;
-            brokerName: string | null;
+            tenantType: import(".prisma/client").$Enums.TenantType;
+            expectedMoveIn: Date | null;
+            bookingDate: Date | null;
             rentAmount: import("@prisma/client/runtime/library").Decimal | null;
         })[];
-        tenantProfile: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            dateOfBirth: Date | null;
-            gender: string | null;
-            occupation: string | null;
-            companyName: string | null;
-            monthlyIncome: import("@prisma/client/runtime/library").Decimal | null;
-            emergencyName: string | null;
-            emergencyPhone: string | null;
-            emergencyRelation: string | null;
-            kycStatus: string;
-            kycVerifiedAt: Date | null;
-            moveInDate: Date | null;
-            moveOutDate: Date | null;
-        } | null;
-        id: string;
-        email: string | null;
         phone: string;
-        role: import(".prisma/client").$Enums.UserRole;
+        email: string | null;
         firstName: string;
         lastName: string;
+        dob: Date | null;
+        id: string;
+        role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         isApproved: boolean;
         accountStatus: import(".prisma/client").$Enums.AccountStatus;
@@ -193,6 +197,5 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        dob: Date | null;
     }>;
 }

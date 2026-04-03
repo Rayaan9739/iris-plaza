@@ -47,7 +47,7 @@ export class DocumentsService {
   }
 
   async create(
-    userId: string,
+    actorUserId: string,
     data: {
       name: string;
       type: string;
@@ -57,7 +57,9 @@ export class DocumentsService {
       mimeType?: string;
       bookingId?: string;
       status?: string;
+      userId?: string;
     },
+    actorRole?: string,
   ) {
     // Map frontend type to correct DB DocumentType enum
     const mappedType = this.mapDocumentType(data.type);
@@ -66,6 +68,29 @@ export class DocumentsService {
     const validTypes = ["AADHAAR", "COLLEGE_ID", "TENANT_PHOTO", "ID_CARD", "PROOF_OF_INCOME", "ADDRESS_PROOF", "PHOTO", "AGREEMENT", "OTHER"];
     if (!validTypes.includes(mappedType)) {
       throw new BadRequestException(`Invalid document type: ${data.type}`);
+    }
+
+    let targetUserId = actorUserId;
+
+    if (actorRole === "ADMIN" && data.userId) {
+      targetUserId = data.userId;
+    }
+
+    if (data.bookingId) {
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: data.bookingId },
+        select: { id: true, userId: true },
+      });
+
+      if (!booking) {
+        throw new BadRequestException("Invalid bookingId");
+      }
+
+      if (actorRole === "ADMIN") {
+        targetUserId = data.userId || booking.userId;
+      } else if (booking.userId !== targetUserId) {
+        throw new BadRequestException("You can only upload documents for your own booking");
+      }
     }
 
     return this.prisma.document.create({
@@ -77,7 +102,7 @@ export class DocumentsService {
         fileSize: data.fileSize,
         mimeType: data.mimeType,
         bookingId: data.bookingId,
-        userId,
+        userId: targetUserId,
         status: (data.status || "SUBMITTED") as any,
       },
     });

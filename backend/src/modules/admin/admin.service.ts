@@ -3,7 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { BookingSource, BookingStatus, Prisma, RoomStatus } from "@prisma/client";
+import { BookingSource, BookingStatus, Prisma, RoomStatus, TenantType } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { NotificationsService } from "@/modules/notifications/notifications.service";
 import { EventEmitterService } from "@/common/services/event-emitter.service";
@@ -487,6 +487,8 @@ export class AdminService {
             booking.room.rent ?? 0
           ),
           status: booking.status,
+          tenantType: (booking as any).tenantType || "ACTIVE",
+          expectedMoveIn: (booking as any).expectedMoveIn || null,
           user: booking.user,
           bookingSource,
           brokerName,
@@ -546,6 +548,8 @@ export class AdminService {
       phone: booking.user.phone,
       email: booking.user.email,
       status: booking.status,
+      tenantType: (booking as any).tenantType || "ACTIVE",
+      expectedMoveIn: (booking as any).expectedMoveIn || null,
       booking: {
         id: booking.id,
         status: booking.status,
@@ -894,13 +898,20 @@ export class AdminService {
             });
           }
 
-          // Update management fields for the room (only for occupancy status, not rent)
+          // Keep both management + listing occupancy in sync so admin/home listings show the latest occupiedUntil.
           const roomManagementUpdate: any = {};
-          
-          if (data.extendOccupiedUntil) {
-            roomManagementUpdate.managementOccupiedUntil = new Date(data.extendOccupiedUntil);
+
+          const effectiveOccupiedUntil = data.extendOccupiedUntil
+            ? new Date(data.extendOccupiedUntil)
+            : parsedMoveOutDate;
+
+          if (effectiveOccupiedUntil) {
+            roomManagementUpdate.managementOccupiedUntil = effectiveOccupiedUntil;
             roomManagementUpdate.managementStatus = "OCCUPIED";
             roomManagementUpdate.managementIsAvailable = false;
+            roomManagementUpdate.occupiedUntil = effectiveOccupiedUntil;
+            roomManagementUpdate.status = RoomStatus.OCCUPIED;
+            roomManagementUpdate.isAvailable = false;
           }
           
           if (Object.keys(roomManagementUpdate).length > 0) {
@@ -1271,5 +1282,168 @@ export class AdminService {
       availableRooms,
       occupancyRate,
     };
+  }
+
+  async createOfflineTenant(data: {
+    firstName: string;
+    lastName?: string;
+    phone: string;
+    roomId: string;
+    moveInDate: string;
+    moveOutDate?: string;
+    bookingSource?: string;
+    brokerName?: string;
+    isFutureBooking?: boolean;
+    expectedMoveIn?: string;
+    rentAmount?: number;
+  }) {
+    if (!data.firstName || !data.phone || !data.roomId || !data.moveInDate) {
+      throw new BadRequestException(
+        "firstName, phone, roomId and moveInDate are required",
+      );
+    }
+
+    const normalizedPhone = String(data.phone).trim();
+    const normalizedRoomId = String(data.roomId).trim();
+
+    if (!normalizedPhone) {
+      throw new BadRequestException("Phone number cannot be empty");
+    }
+
+    const normalizedBookingSource = this.normalizeBookingSource(
+      data.bookingSource as any,
+    );
+    const normalizedBrokerName = this.normalizeBrokerName(
+      normalizedBookingSource,
+      data.brokerName,
+    );
+
+    const isFutureBooking = data.isFutureBooking === true;
+
+    if (isFutureBooking && !data.expectedMoveIn) {
+      throw new BadRequestException(
+        "expectedMoveIn is required for future bookings",
+      );
+    }
+
+    const parsedMoveInDate = this.parseDateInput(data.moveInDate, "moveInDate");
+    const parsedExpectedMoveIn = isFutureBooking
+      ? this.parseDateInput(data.expectedMoveIn, "expectedMoveIn")
+      : undefined;
+    const parsedMoveOutDate = this.parseDateInput(data.moveOutDate, "moveOutDate");
+
+    if (!parsedMoveInDate) {
+      throw new BadRequestException("moveInDate must be a valid date");
+    }
+
+    const room = await this.prisma.room.findUnique({
+      where: { id: normalizedRoomId },
+      select: { id: true, name: true, rent: true, deposit: true, deletedAt: true },
+    });
+
+    if (!room || room.deletedAt) {
+      throw new NotFoundException("Room not found");
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: { phone: normalizedPhone },
+    });
+
+    if (existingUser) {
+      const existingBooking = await this.prisma.booking.findFirst({
+        where: {
+          userId: existingUser.id,
+          status: { in: this.activeTenantBookingStatuses },
+        },
+      });
+
+      if (existingBooking) {
+        throw new BadRequestException(
+          "A user with this phone number already has an active booking",
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      let user: any;
+
+      if (existingUser) {
+        user = await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            firstName: data.firstName,
+            lastName: data.lastName || existingUser.lastName,
+            isActive: true,
+            isApproved: true,
+            accountStatus: "ACTIVE",
+          },
+        });
+      } else {
+        user = await tx.user.create({
+          data: {
+            firstName: data.firstName,
+            lastName: data.lastName || "",
+            phone: normalizedPhone,
+            role: "TENANT",
+            isActive: true,
+            isApproved: true,
+            accountStatus: "ACTIVE",
+          },
+        });
+      }
+
+      const tenantType = isFutureBooking ? TenantType.FUTURE : TenantType.ACTIVE;
+      const now = new Date();
+
+      const booking = await tx.booking.create({
+        data: {
+          userId: user.id,
+          roomId: normalizedRoomId,
+          startDate: parsedMoveInDate,
+          moveInDate: parsedMoveInDate,
+          endDate: parsedMoveOutDate || undefined,
+          moveOutDate: parsedMoveOutDate || undefined,
+          status: BookingStatus.APPROVED,
+          bookingSource: normalizedBookingSource,
+          brokerName: normalizedBrokerName,
+          tenantType,
+          expectedMoveIn: isFutureBooking ? parsedExpectedMoveIn : undefined,
+          bookingDate: isFutureBooking ? now : undefined,
+          ...(data.rentAmount !== undefined
+            ? { rentAmount: new Prisma.Decimal(data.rentAmount) }
+            : {}),
+          statusHistory: {
+            create: {
+              status: BookingStatus.APPROVED,
+              comment: isFutureBooking
+                ? `Future booking created by admin (offline). Expected move-in: ${parsedExpectedMoveIn?.toISOString().split("T")[0]}`
+                : "Offline tenant created by admin",
+            },
+          },
+        },
+      });
+
+      if (!isFutureBooking) {
+        await tx.room.update({
+          where: { id: normalizedRoomId },
+          data: {
+            status: RoomStatus.OCCUPIED,
+            isAvailable: false,
+            occupiedFrom: parsedMoveInDate,
+            occupiedUntil: parsedMoveOutDate || undefined,
+          } as any,
+        });
+      }
+
+      return {
+        success: true,
+        tenantType,
+        user,
+        booking,
+        message: isFutureBooking
+          ? "Future booking created successfully"
+          : "Offline tenant created successfully",
+      };
+    });
   }
 }
